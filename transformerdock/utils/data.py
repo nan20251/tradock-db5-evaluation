@@ -5,7 +5,6 @@
               + 曲率(1) + 形状指数(1) + 氨基酸极性(1) + rSASA(1)
 """
 
-import math
 import os
 import numpy as np
 import torch
@@ -34,19 +33,6 @@ FEATURE_NAMES = [
     'curvature', 'shape_index', 'aa_polar', 'rSASA',
 ]
 
-PAIR_AWARE_FEATURE_NAMES = [
-    'min_partner_dist_norm',
-    'contact_density_5A',
-    'contact_density_8A',
-    'clash_depth',
-    'normal_facing',
-    'normal_complementarity',
-    'electrostatic_partner',
-    'hydrophobic_partner',
-]
-
-PAIR_AWARE_IN_CHANNELS = len(FEATURE_NAMES) + len(PAIR_AWARE_FEATURE_NAMES)
-
 # Conservative clamps for the current surface_gen.py feature contract. The main
 # goal is to prevent a single malformed PLY/SASA value from poisoning BatchNorm.
 FEATURE_CLAMPS = [
@@ -54,17 +40,6 @@ FEATURE_CLAMPS = [
     (-5.0, 5.0), (-5.0, 5.0),
     (0.0, 8.0), (0.0, 8.0),
     (0.0, 1.0), (-1.0, 1.0), (0.0, 1.0), (0.0, 2.0),
-]
-
-PAIR_AWARE_FEATURE_CLAMPS = [
-    (0.0, 1.0),
-    (0.0, 2.0),
-    (0.0, 2.0),
-    (0.0, 5.0),
-    (-1.0, 1.0),
-    (-1.0, 1.0),
-    (-1.0, 1.0),
-    (-1.0, 1.0),
 ]
 
 
@@ -141,114 +116,6 @@ def match_feature_dim(data, in_channels):
         pad = data.x.new_zeros((data.x.size(0), in_channels - cur))
         data.x = torch.cat([data.x, pad], dim=1)
     return data
-
-
-def _clamp_columns(x, clamps):
-    for i, (lo, hi) in enumerate(clamps):
-        x[:, i] = torch.clamp(x[:, i], lo, hi)
-    return x
-
-
-def _normalized_normals(x):
-    if x.size(1) < 3:
-        return x.new_zeros((x.size(0), 3))
-    normals = x[:, :3]
-    return normals / normals.norm(dim=1, keepdim=True).clamp(min=1e-6)
-
-
-def _column_or_zeros(x, idx):
-    if x.size(1) <= idx:
-        return x.new_zeros((x.size(0),))
-    return x[:, idx]
-
-
-@torch.no_grad()
-def _partner_features(source, partner, chunk_size=1024):
-    """Pose-aware per-node features from source surface to partner surface."""
-    n_src = int(source.pos.size(0))
-    n_partner = int(partner.pos.size(0))
-    if n_src == 0 or n_partner == 0:
-        return source.x.new_zeros((n_src, len(PAIR_AWARE_FEATURE_NAMES)))
-
-    src_pos = source.pos.float()
-    partner_pos = partner.pos.float()
-    src_norm = _normalized_normals(source.x.float())
-    partner_norm = _normalized_normals(partner.x.float())
-    src_charge = _column_or_zeros(source.x.float(), 3)
-    partner_charge = _column_or_zeros(partner.x.float(), 3)
-    src_hydro = _column_or_zeros(source.x.float(), 4)
-    partner_hydro = _column_or_zeros(partner.x.float(), 4)
-
-    out = source.x.new_zeros((n_src, len(PAIR_AWARE_FEATURE_NAMES)))
-    log32 = math.log1p(32.0)
-    log64 = math.log1p(64.0)
-    log8 = math.log1p(8.0)
-
-    for start in range(0, n_src, chunk_size):
-        end = min(start + chunk_size, n_src)
-        dist = torch.cdist(src_pos[start:end], partner_pos)
-        min_dist, nearest_idx = dist.min(dim=1)
-
-        nearest_pos = partner_pos[nearest_idx]
-        direction = nearest_pos - src_pos[start:end]
-        unit_direction = direction / direction.norm(dim=1, keepdim=True).clamp(min=1e-6)
-        normal_facing = (src_norm[start:end] * unit_direction).sum(dim=1).clamp(-1.0, 1.0)
-        normal_complementarity = (
-            -(src_norm[start:end] * partner_norm[nearest_idx]).sum(dim=1)
-        ).clamp(-1.0, 1.0)
-
-        w5 = torch.exp(-((dist / 3.0) ** 2)) * (dist < 5.0).float()
-        w8 = torch.exp(-((dist / 4.0) ** 2)) * (dist < 8.0).float()
-        density5 = torch.log1p(w5.sum(dim=1)) / log32
-        density8 = torch.log1p(w8.sum(dim=1)) / log64
-
-        clash_depth = torch.log1p(torch.relu(2.0 - dist).pow(2).sum(dim=1)) / log8
-
-        denom8 = w8.sum(dim=1).clamp(min=1e-6)
-        avg_partner_charge = (w8 * partner_charge.view(1, -1)).sum(dim=1) / denom8
-        avg_partner_hydro = (w8 * partner_hydro.view(1, -1)).sum(dim=1) / denom8
-        electrostatic_partner = (-src_charge[start:end] * avg_partner_charge / 5.0).clamp(-1.0, 1.0)
-        hydrophobic_partner = (src_hydro[start:end] * avg_partner_hydro / 5.0).clamp(-1.0, 1.0)
-
-        feats = torch.stack([
-            (min_dist / 20.0).clamp(0.0, 1.0),
-            density5,
-            density8,
-            clash_depth,
-            normal_facing,
-            normal_complementarity,
-            electrostatic_partner,
-            hydrophobic_partner,
-        ], dim=1)
-        out[start:end] = _clamp_columns(
-            torch.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=0.0),
-            PAIR_AWARE_FEATURE_CLAMPS,
-        ).to(out.dtype)
-
-    return out
-
-
-def add_pair_aware_features(rec, lig):
-    """
-    Append pose-aware interface physics to receptor and ligand node features.
-
-    The original .ply files stay 11-dimensional. These 8 extra channels are
-    computed from the current receptor/ligand pose, so they must be added after
-    both chains have been loaded.
-    """
-    base_dim = len(FEATURE_NAMES)
-    pair_dim = len(PAIR_AWARE_FEATURE_NAMES)
-    if rec.x.size(1) >= base_dim + pair_dim and lig.x.size(1) >= base_dim + pair_dim:
-        return rec, lig
-    rec.x = torch.cat([rec.x, _partner_features(rec, lig)], dim=1)
-    lig.x = torch.cat([lig.x, _partner_features(lig, rec)], dim=1)
-    return rec, lig
-
-
-def maybe_add_pair_aware_features(rec, lig, in_channels):
-    if in_channels is not None and int(in_channels) > len(FEATURE_NAMES):
-        rec, lig = add_pair_aware_features(rec, lig)
-    return rec, lig
 
 
 # ─────────────────────────────────────────────────────────────
@@ -452,7 +319,6 @@ class PPI_Dataset(Dataset):
         lig_path = self._find_ply(name, 'ligand')
         rec = read_ply(rec_path)
         lig = read_ply(lig_path)
-        rec, lig = maybe_add_pair_aware_features(rec, lig, self.in_channels)
         rec = match_feature_dim(rec, self.in_channels)
         lig = match_feature_dim(lig, self.in_channels)
         if self.max_nodes:
@@ -472,7 +338,6 @@ def prepare_complex(rec_ply_path, lig_ply_path, in_channels=11):
     """
     rec = read_ply(rec_ply_path)
     lig = read_ply(lig_ply_path)
-    rec, lig = maybe_add_pair_aware_features(rec, lig, in_channels)
     rec = match_feature_dim(rec, in_channels)
     lig = match_feature_dim(lig, in_channels)
     # 添加 batch 索引（单样本 batch=0）

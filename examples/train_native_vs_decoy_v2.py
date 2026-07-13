@@ -33,12 +33,7 @@ from torch_geometric.data import Batch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from transformerdock.models import DeepDock_PPI, ppi_train_loss
-from transformerdock.utils.data import (
-    PAIR_AWARE_IN_CHANNELS,
-    maybe_add_pair_aware_features,
-    match_feature_dim,
-    read_ply,
-)
+from transformerdock.utils.data import match_feature_dim, read_ply
 
 
 # ─────────────────────────────────────────────────────────────
@@ -48,7 +43,7 @@ from transformerdock.utils.data import (
 class MixedDataset(Dataset):
     def __init__(self, native_dir, decoy_dir, decoy_csv,
                  stem_filter=None, max_per_stem_decoy=None,
-                 in_channels=PAIR_AWARE_IN_CHANNELS):
+                 in_channels=11):
         self.records = []
         self.in_channels = in_channels
 
@@ -138,7 +133,6 @@ class MixedDataset(Dataset):
         r = self.records[idx]
         rec = read_ply(r['rec'])
         lig = read_ply(r['lig'])
-        rec, lig = maybe_add_pair_aware_features(rec, lig, self.in_channels)
         rec = match_feature_dim(rec, self.in_channels)
         lig = match_feature_dim(lig, self.in_channels)
         return (rec, lig,
@@ -433,8 +427,8 @@ def main():
     parser.add_argument('--n_cross_layers', type=int, default=2)
     parser.add_argument('--dropout', type=float, default=0.15)
     parser.add_argument('--dist_threshold', type=float, default=10.0)
-    parser.add_argument('--in_channels', type=int, default=PAIR_AWARE_IN_CHANNELS,
-                        help='输入特征维度；19=11维表面特征+8维pair-aware物理特征')
+    parser.add_argument('--in_channels', type=int, default=11,
+                        help='输入特征维度；默认11维表面特征')
     # 训练
     parser.add_argument('--epochs', type=int, default=30)
     parser.add_argument('--batches_per_epoch', type=int, default=400)

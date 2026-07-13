@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import transformerdock
 from transformerdock.models import DeepDock_PPI, ppi_train_loss, ppi_score_diff
-from transformerdock.utils.data import PAIR_AWARE_IN_CHANNELS, PPI_Dataset, ppi_collate
+from transformerdock.utils.data import PPI_Dataset, ppi_collate
 
 
 # ─────────────────────────────────────────────────────────────
@@ -264,8 +264,8 @@ def main():
     parser.add_argument('--dropout',        type=float, default=0.15)
     parser.add_argument('--dist_threshold', type=float, default=10.0,
                         help='MDN 距离阈值（Å）')
-    parser.add_argument('--in_channels',    type=int,   default=PAIR_AWARE_IN_CHANNELS,
-                        help='输入特征维度；19=11维表面特征+8维pair-aware物理特征')
+    parser.add_argument('--in_channels',    type=int,   default=11,
+                        help='输入特征维度；默认11维表面特征')
     parser.add_argument('--epochs',         type=int,   default=100)
     parser.add_argument('--batch_size',     type=int,   default=4)
     parser.add_argument('--lr',             type=float, default=1e-4)

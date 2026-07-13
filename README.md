@@ -1,41 +1,69 @@
-# TraDock - quick setup
+# TraDock
 
-ppi评分模型
+Protein-protein docking scoring and CAPRI/DB5 evaluation code.
 
-Brief notes to get the project running locally using conda.
+Current project convention: model inputs use the 11-dimensional surface feature
+set from `transformerdock/utils/data.py`. The experimental 19-dimensional
+pair-aware path has been removed from active scripts.
 
-1) Create conda env
+## Setup
+
+1. Create the conda environment:
 
 ```bash
 conda env create -f environment.yml
 conda activate tradock
 ```
 
-2) Install PyTorch and GPU support
+2. Install PyTorch and GPU support for the target machine.
 
-Follow https://pytorch.org/ to install the correct `pytorch` and `cudatoolkit` for your GPU.
+Use the PyTorch selector for the exact CUDA/runtime combination on the machine.
+The AutoDL runs used PyTorch 2.4.1 with CUDA 12.1.
 
-3) Install PyTorch Geometric (PyG) native extensions
-
-After matching PyTorch/CUDA, install PyG wheels from the official index. Example placeholder:
+3. Install PyTorch Geometric native extensions matching that PyTorch/CUDA build:
 
 ```bash
-# replace TORCH_TAG and CUDA_TAG with detected values (see run_step0_step1.sh)
-pip install torch-scatter -f https://data.pyg.org/whl/torch-TORCH_TAG+CUDA_TAG.html
-pip install torch-sparse -f https://data.pyg.org/whl/torch-TORCH_TAG+CUDA_TAG.html
-pip install torch-cluster -f https://data.pyg.org/whl/torch-TORCH_TAG+CUDA_TAG.html
-pip install torch-spline-conv -f https://data.pyg.org/whl/torch-TORCH_TAG+CUDA_TAG.html
+pip install torch-scatter torch-sparse torch-cluster torch-spline-conv \
+  -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
 pip install torch-geometric
 ```
 
-4) Sanity checks
+4. Run the environment check:
 
 ```bash
-python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
-python -c "import freesasa; print('FreeSASA OK')"
-python -c "import torch_geometric; print('PyG', torch_geometric.__version__)"
+python scripts/quick_check.py
 ```
 
-Notes
-- This repo includes helper scripts `run_step0_env_4090.sh` and `run_step0_step1.sh` to detect and guide installs.
-- If you see undefined-symbol errors for PyG native libs, reinstall the PyG wheels matching your exact `torch`+`cuda`.
+## Common Workflows
+
+Pretrain on DIPS surface data:
+
+```bash
+DIPS_SURFACES=/path/to/dips_with_sasa_full bash scripts/run_step2_pretrain.sh
+```
+
+Evaluate the current checkpoint on CAPRI:
+
+```bash
+CAPRI_DIR=/path/to/capri/database \
+CHECKPOINT=Trained_models/pretrain_with_sasa/TransformerDock_best.chk \
+bash scripts/run_step7_eval.sh
+```
+
+Run DB5 paper-style evaluation:
+
+```bash
+bash scripts/run_step8_eval_db5_paper.sh
+```
+
+## Important Paths
+
+- `transformerdock/`: model and data-loading package
+- `examples/`: training, evaluation, and dataset-preparation entry points
+- `scripts/`: operational helpers for checks, filtering, training, and evaluation
+- `data/`: lightweight metadata and exclusion lists
+- `Trained_models/`: local checkpoints
+- `results/` and `results_remote_*`: local and synced evaluation outputs
+
+See `PROJECT_GUIDE.md` for the compact project map and `RUNBOOK.md` for
+operational notes from previous remote runs.
