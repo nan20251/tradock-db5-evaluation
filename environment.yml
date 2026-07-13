@@ -1,0 +1,28 @@
+name: tradock
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - pip
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - scikit-learn
+  - tqdm
+  - biopython
+  - freesasa
+  - pytorch::pytorch=2.4.1
+  - pytorch::pytorch-cuda=12.1
+
+# After creating this env, install PyG native extensions:
+#   conda activate tradock
+#   pip install --upgrade pip
+#   pip install torch-scatter -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
+#   pip install torch-sparse -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
+#   pip install torch-cluster -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
+#   pip install torch-spline-conv -f https://data.pyg.org/whl/torch-2.4.1+cu121.html
+#   pip install torch-geometric

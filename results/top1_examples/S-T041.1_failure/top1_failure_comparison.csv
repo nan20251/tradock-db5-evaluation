@@ -1,0 +1,4 @@
+kind,target,model_id,identification,score,fnat,dockq,lrms,irms,classification,success_fnat_gt_0.3,pdb_file
+original_top1_success,S-T041.1,328,T41_S02.M01,-0.6586298942565918,0.8305,0.5976,6.8596,2.0142,acceptable,True,S-T041.1_original_top1_model328.pdb
+best_available_by_fnat,S-T041.1,376,T41_S11.M09,-0.6786836385726929,0.9492,0.9255,1.5038,0.6114,high,True,S-T041.1_best_fnat_model376.pdb
+tradock_top1_failure,S-T041.1,408,T41_S16.M01,0.0,0.0,0.0018,126.8351,50.6197,incorrect,False,S-T041.1_tradock_failed_top1_model408.pdb

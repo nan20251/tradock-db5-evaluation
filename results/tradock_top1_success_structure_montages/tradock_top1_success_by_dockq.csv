@@ -1,0 +1,11 @@
+metric,group,rank_in_group,target,model_id,mdn_score,fnat,dockq,classification,rec_chain,lig_chain,extracted_pdb
+dockq,top5,1,S-T151.1,342,-0.69122314453125,0.925,0.9026,high,A,B,results/tradock_top1_success_structure_montages/structures/S-T151.1_model342_tradock_top1_success.pdb
+dockq,top5,2,S-T047.1,401,-0.617780864238739,0.8393,0.8349,high,A,B,results/tradock_top1_success_structure_montages/structures/S-T047.1_model401_tradock_top1_success.pdb
+dockq,top5,3,S-T040.1,378,-1.4313490390777588,0.8594,0.7056,medium,A,A,results/tradock_top1_success_structure_montages/structures/S-T040.1_model378_tradock_top1_success.pdb
+dockq,top5,4,S-T104.1,363,-0.6375141739845276,0.65,0.6977,medium,E,F,results/tradock_top1_success_structure_montages/structures/S-T104.1_model363_tradock_top1_success.pdb
+dockq,top5,5,S-T080.1,375,-0.6572083830833435,0.6875,0.6871,medium,A,B,results/tradock_top1_success_structure_montages/structures/S-T080.1_model375_tradock_top1_success.pdb
+dockq,bottom5,1,S-T054.1,480,-0.651255190372467,0.32,0.1639,incorrect,A,C,results/tradock_top1_success_structure_montages/structures/S-T054.1_model480_tradock_top1_success.pdb
+dockq,bottom5,2,S-T046.1,503,-0.6548780202865601,0.4203,0.2212,incorrect,A,B,results/tradock_top1_success_structure_montages/structures/S-T046.1_model503_tradock_top1_success.pdb
+dockq,bottom5,3,S-T072.1,268,-0.6316573023796082,0.4211,0.2632,incorrect,A,B,results/tradock_top1_success_structure_montages/structures/S-T072.1_model268_tradock_top1_success.pdb
+dockq,bottom5,4,S-T133.1,2600,-0.6229316592216492,0.3208,0.3221,acceptable,A,D,results/tradock_top1_success_structure_montages/structures/S-T133.1_model2600_tradock_top1_success.pdb
+dockq,bottom5,5,S-T075.1,260,-0.6536068916320801,0.411,0.3237,acceptable,A,B,results/tradock_top1_success_structure_montages/structures/S-T075.1_model260_tradock_top1_success.pdb

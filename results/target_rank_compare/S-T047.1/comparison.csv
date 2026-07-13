@@ -1,0 +1,16 @@
+group,rank_in_group,target,model_id,original_index,identification,mdn_score,n_interface_pairs,score_reason,fnat,dockq,lrms,irms,classification,pdb_file,model_record_found
+tradock_top5,1,S-T047.1,401,,T47_S21.M04,-0.6177809238433838,8141,ok,0.8393,0.8349,1.7237,0.9705,high,tradock_top5_rank1_S-T047.1_model401.pdb,True
+tradock_top5,2,S-T047.1,292,,T47_S03.M05,-0.617937445640564,8898,ok,0.8036,0.799,2.1328,1.0946,medium,tradock_top5_rank2_S-T047.1_model292.pdb,True
+tradock_top5,3,S-T047.1,285,,T47_S01.M08,-0.6288673877716064,7743,ok,0.8036,0.8587,1.0667,0.7782,high,tradock_top5_rank3_S-T047.1_model285.pdb,True
+tradock_top5,4,S-T047.1,318,,T47_S10.M01,-0.6289500594139099,8001,ok,0.875,0.8511,1.6574,0.9472,high,tradock_top5_rank4_S-T047.1_model318.pdb,True
+tradock_top5,5,S-T047.1,378,,T47_S19.M01,-0.6294169425964355,8064,ok,0.7679,0.8198,1.8129,0.9005,high,tradock_top5_rank5_S-T047.1_model378.pdb,True
+original_top5,1,S-T047.1,278,1,T47_S01.M01,-0.6582315564155579,8249,ok,0.8214,0.8087,2.6891,0.9920,high,original_top5_rank1_S-T047.1_model278.pdb,True
+original_top5,2,S-T047.1,279,2,T47_S01.M02,-0.6623322367668152,6739,ok,0.7500,0.7808,2.7862,1.0066,medium,original_top5_rank2_S-T047.1_model279.pdb,True
+original_top5,3,S-T047.1,280,3,T47_S01.M03,-0.6780896186828613,6787,ok,0.8036,0.7743,3.3107,1.0981,medium,original_top5_rank3_S-T047.1_model280.pdb,True
+original_top5,4,S-T047.1,281,4,T47_S01.M04,-0.6703347563743591,7026,ok,0.7500,0.7900,2.7714,0.9447,high,original_top5_rank4_S-T047.1_model281.pdb,True
+original_top5,5,S-T047.1,282,5,T47_S01.M05,-0.6694217920303345,8293,ok,0.0536,0.0382,40.8001,10.6866,incorrect,original_top5_rank5_S-T047.1_model282.pdb,True
+tradock_bottom5,1,S-T047.1,311,,T47_S09.M04,-0.7431977987289429,10496,ok,0.0,0.0189,38.8587,14.163,incorrect,tradock_bottom5_rank1_S-T047.1_model311.pdb,True
+tradock_bottom5,2,S-T047.1,375,,T47_S18.M08,-0.7502552270889282,7652,ok,0.1607,0.0913,26.6765,10.2253,incorrect,tradock_bottom5_rank2_S-T047.1_model375.pdb,True
+tradock_bottom5,3,S-T047.1,391,,T47_S20.M04,-0.7582027912139893,8754,ok,0.7857,0.7529,2.1238,1.4073,medium,tradock_bottom5_rank3_S-T047.1_model391.pdb,True
+tradock_bottom5,4,S-T047.1,374,,T47_S18.M07,-0.7756853699684143,5424,ok,0.125,0.0983,20.233,10.557,incorrect,tradock_bottom5_rank4_S-T047.1_model374.pdb,True
+tradock_bottom5,5,S-T047.1,308,,T47_S09.M01,-0.8732096552848816,11307,ok,0.0,0.0217,36.0702,13.4107,incorrect,tradock_bottom5_rank5_S-T047.1_model308.pdb,True

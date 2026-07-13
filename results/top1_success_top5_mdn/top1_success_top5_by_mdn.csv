@@ -1,0 +1,6 @@
+rank_by_mdn,target,model_id,identification,mdn_score,n_interface_pairs,score_reason,fnat,dockq,lrms,irms,classification,source_pdb,extracted_pdb,model_record_found
+1,S-T047.1,401,T47_S21.M04,-0.617780924,8141,ok,0.8393,0.8349,1.7237,0.9705,high,data/database/S-T047.1.pdb,results/top1_success_top5_mdn/rank1_S-T047.1_model401_top1_success.pdb,True
+2,S-T153.1,2106,T153_S25.M01,-0.62185818,9726,ok,0.7556,0.5854,7.3147,1.742,medium,data/database/S-T153.1.pdb,results/top1_success_top5_mdn/rank2_S-T153.1_model2106_top1_success.pdb,True
+3,S-T041.1,385,T41_S12.M08,-0.622525811,8811,ok,0.5932,0.4472,9.4467,2.2862,acceptable,data/database/S-T041.1.pdb,results/top1_success_top5_mdn/rank3_S-T041.1_model385_top1_success.pdb,True
+4,S-T133.1,2600,T133_S02.M07,-0.622931778,7793,ok,0.3208,0.3221,7.8081,4.4309,acceptable,data/database/S-T133.1.pdb,results/top1_success_top5_mdn/rank4_S-T133.1_model2600_top1_success.pdb,True
+5,S-T081.1,247,T81_S12.M10,-0.62995863,5587,ok,0.3125,0.3453,7.6659,3.293,acceptable,data/database/S-T081.1.pdb,results/top1_success_top5_mdn/rank5_S-T081.1_model247_top1_success.pdb,True
