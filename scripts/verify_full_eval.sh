@@ -10,6 +10,11 @@ if [ -f "$TRADOCK_ENV_FILE" ]; then
     # shellcheck disable=SC1090
     source "$TRADOCK_ENV_FILE"
 fi
+TRADOCK_LOCAL_ENV_FILE="${TRADOCK_LOCAL_ENV_FILE:-$PROJECT_ROOT/environment.local}"
+if [ -f "$TRADOCK_LOCAL_ENV_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$TRADOCK_LOCAL_ENV_FILE"
+fi
 
 PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
 PPC_ROOT="${PPC_ROOT:-${PAPER_ROOT:-/root/PPCBench}}"

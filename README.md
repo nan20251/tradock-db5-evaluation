@@ -77,6 +77,21 @@ under `portable_data/`, so the HDOCK evaluation data can be restored without
 GitHub Release downloads. If you want to use Release assets and optional packed
 conda environments instead:
 
+For non-root users, clone anywhere and run the same restore command:
+
+```bash
+git clone https://github.com/nan20251/tradock-db5-evaluation.git ~/tradock-db5-evaluation
+cd ~/tradock-db5-evaluation
+bash scripts/restore_repo_data.sh
+METHODS=hdock bash scripts/verify_full_eval.sh
+```
+
+By default this restores data to `~/tradock_data` and writes
+`environment.local`, which is auto-sourced by the DB5 evaluation scripts.
+
+If you want to use Release assets and optional packed conda environments
+instead:
+
 ```bash
 bash scripts/bootstrap_full_eval.sh
 ```

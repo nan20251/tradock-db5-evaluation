@@ -11,6 +11,12 @@ if [ -f "$TRADOCK_ENV_FILE" ]; then
     source "$TRADOCK_ENV_FILE"
     PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
 fi
+TRADOCK_LOCAL_ENV_FILE="${TRADOCK_LOCAL_ENV_FILE:-$PROJECT_ROOT/environment.local}"
+if [ -f "$TRADOCK_LOCAL_ENV_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$TRADOCK_LOCAL_ENV_FILE"
+    PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
+fi
 PPC_ROOT="${PPC_ROOT:-${PAPER_ROOT:-/root/PPCBench}}"
 RUN_ROOT="${DB5_EVAL_RUN_ROOT:-/root/autodl-tmp/db5_three_method_eval}"
 RESULTS_ROOT="${DB5_EVAL_RESULTS_ROOT:-${RUN_ROOT}/results}"
