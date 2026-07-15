@@ -8,10 +8,17 @@ examples/eval_db5_paper_tradock.py:
   <paper_root>/results/DB5/hdock_2/<PDB>/<PDB>_hdock_2_id.pdb
   ...
 
-Default docking command:
+Default docking command (short local names in the work directory):
 
-  hdock receptor.pdb ligand.pdb -out hdock.out
-  createpl_linux hdock.out topN_complex.pdb -nmax N -complex -models
+  ln -sfn <receptor> r.pdb
+  ln -sfn <ligand> l.pdb
+  hdock r.pdb l.pdb -out Hdock.out
+  cp -f <pdb>_hdock.out Hdock.out   # after normalize, if needed
+  createpl Hdock.out topn.pdb -nmax N -complex -models
+
+Absolute paths under long user homes often break Fortran HDOCKlite builds
+(forrtl severe 29 / truncated path). This script therefore stages short
+filenames inside --work_root before calling hdock/createpl.
 
 Some HDOCKlite builds ignore the requested output paths and always write
 Hdock.out plus model_1.pdb, model_2.pdb, ... in the working directory. This
@@ -142,6 +149,15 @@ def run_command(cmd, cwd, log_path, use_shell=False):
     return time.time() - t0
 
 
+def stage_short_input(src, dst):
+    """Point dst at src using a relative short name usable by Fortran HDOCK."""
+    unlink_if_exists(dst)
+    try:
+        os.symlink(str(Path(src).resolve()), dst)
+    except OSError:
+        shutil.copyfile(str(src), dst)
+
+
 def run_hdock(args, pdbid, receptor, ligand, hdock_out, work_dir):
     values = {
         'hdock': args.hdock_bin,
@@ -157,12 +173,20 @@ def run_hdock(args, pdbid, receptor, ligand, hdock_out, work_dir):
         cmd = format_template(args.hdock_template, values)
         return run_command(cmd, work_dir, log_path, use_shell=True)
 
+    # Short local names avoid Fortran path-length truncation under long homes.
+    local_rec = work_dir / 'r.pdb'
+    local_lig = work_dir / 'l.pdb'
+    local_out = work_dir / 'Hdock.out'
+    stage_short_input(receptor, local_rec)
+    stage_short_input(ligand, local_lig)
+    unlink_if_exists(local_out)
+
     cmd = [
         args.hdock_bin,
-        receptor,
-        ligand,
+        local_rec.name,
+        local_lig.name,
         '-out',
-        hdock_out,
+        local_out.name,
     ] + shlex.split(args.hdock_extra_args or '')
     return run_command(cmd, work_dir, log_path)
 
@@ -182,16 +206,28 @@ def run_createpl(args, pdbid, hdock_out, models_pdb, work_dir):
         cmd = format_template(args.createpl_template, values)
         return run_command(cmd, work_dir, log_path, use_shell=True)
 
+    # createpl also truncates long absolute paths; keep a short local Hdock.out.
+    local_out = work_dir / 'Hdock.out'
+    local_models = work_dir / 'topn.pdb'
+    if Path(hdock_out).resolve() != local_out.resolve():
+        shutil.copyfile(str(hdock_out), local_out)
+    unlink_if_exists(local_models)
+
     cmd = [
         args.createpl_bin,
-        hdock_out,
-        models_pdb,
+        local_out.name,
+        local_models.name,
         '-nmax',
         str(args.nmax),
         '-complex',
         '-models',
     ] + shlex.split(args.createpl_extra_args or '')
-    return run_command(cmd, work_dir, log_path)
+    elapsed = run_command(cmd, work_dir, log_path)
+    # Prefer assembling model_*.pdb; fall back to topn.pdb if present.
+    normalize_createpl_output(work_dir, models_pdb, args.nmax)
+    if not models_pdb.exists() and local_models.exists():
+        shutil.copyfile(local_models, models_pdb)
+    return elapsed
 
 
 def unlink_if_exists(path):
