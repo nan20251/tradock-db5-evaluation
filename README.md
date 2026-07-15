@@ -63,6 +63,28 @@ Run DB5 paper-style evaluation:
 bash scripts/run_step8_eval_db5_paper.sh
 ```
 
+Restore the portable DB5 three-method evaluation on a new server:
+
+```bash
+git clone https://github.com/nan20251/tradock-db5-evaluation.git /root/TraDock
+cd /root/TraDock
+bash scripts/bootstrap_full_eval.sh
+```
+
+For software-only setup without packed conda environments:
+
+```bash
+conda env create -f environment_full.yml
+conda activate tradock-full
+bash scripts/verify_full_eval.sh
+```
+
+Run only the HDOCK sampling pool plus TraDock reranking:
+
+```bash
+METHODS=hdock bash scripts/run_db5_three_method_eval.sh
+```
+
 ## Important Paths
 
 - `transformerdock/`: model and data-loading package

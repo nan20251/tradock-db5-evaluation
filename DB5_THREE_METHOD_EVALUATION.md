@@ -352,3 +352,31 @@ aggregate.csv
 - HDOCK top1 在当前 DB5 holo 结果中质量很高，按 218 计 Success@1 为 73.85%。
 - AlphaFold probe `1AY7` 上 TraDock 能在 2 个 AF decoy 里选到更高 DockQ 的 pose，但样本太少。
 - LightDock 当前采样池质量不足，oracle upper bound 偏低，必须在最终表里单独报告 oracle。
+
+## 8. 新服务器完整恢复
+
+GitHub 仓库保存代码和默认 TraDock checkpoint，GitHub Release 保存 portable
+数据包。新服务器完整恢复入口：
+
+```bash
+git clone https://github.com/nan20251/tradock-db5-evaluation.git /root/TraDock
+cd /root/TraDock
+bash scripts/bootstrap_full_eval.sh
+```
+
+只补软件环境时：
+
+```bash
+conda env create -f environment_full.yml
+conda activate tradock-full
+bash scripts/verify_full_eval.sh
+```
+
+说明：
+
+- `environment_full.yml` 只负责 Python/conda 依赖。
+- DB5 / PPCBench、HDOCKlite、默认 checkpoint 由 Release portable 包恢复。
+- 如果 Release 中额外上传了 `tradock_conda_env.tar.gz`、`colabfold_conda_env.tar.gz`
+  和 `colabfold_params_v3.tar.gz.part-*`，`bootstrap_full_eval.sh` 会自动恢复。
+- 没有 ColabFold 参数或 LightDock 命令时，`METHODS=hdock` 可以先跑
+  HDOCK + TraDock；三路全跑需要 `verify_full_eval.sh` 全部通过。

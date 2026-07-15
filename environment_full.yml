@@ -1,0 +1,28 @@
+name: tradock-full
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - pip
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - scikit-learn
+  - tqdm
+  - biopython
+  - freesasa
+  - pytorch::pytorch=2.4.1
+  - pytorch::pytorch-cuda=12.1
+  - pip:
+      - --find-links https://data.pyg.org/whl/torch-2.4.1+cu121.html
+      - torch-scatter
+      - torch-sparse
+      - torch-cluster
+      - torch-spline-conv
+      - torch-geometric
+      - lightdock
+      - colabfold
