@@ -68,6 +68,16 @@ Restore the portable DB5 three-method evaluation on a new server:
 ```bash
 git clone https://github.com/nan20251/tradock-db5-evaluation.git /root/TraDock
 cd /root/TraDock
+bash scripts/restore_repo_data.sh
+METHODS=hdock bash scripts/verify_full_eval.sh
+```
+
+The DB5 portable data is also stored directly in the repository as split files
+under `portable_data/`, so the HDOCK evaluation data can be restored without
+GitHub Release downloads. If you want to use Release assets and optional packed
+conda environments instead:
+
+```bash
 bash scripts/bootstrap_full_eval.sh
 ```
 

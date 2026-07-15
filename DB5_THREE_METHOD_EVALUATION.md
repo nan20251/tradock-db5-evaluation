@@ -355,12 +355,33 @@ aggregate.csv
 
 ## 8. 新服务器完整恢复
 
-GitHub 仓库保存代码和默认 TraDock checkpoint，GitHub Release 保存 portable
-数据包。新服务器完整恢复入口：
+GitHub 仓库保存代码、默认 TraDock checkpoint 和切分后的 portable 数据包。
+新服务器不依赖 Release 的恢复入口：
 
 ```bash
 git clone https://github.com/nan20251/tradock-db5-evaluation.git /root/TraDock
 cd /root/TraDock
+bash scripts/restore_repo_data.sh
+METHODS=hdock bash scripts/verify_full_eval.sh
+```
+
+`portable_data/` 中的数据 part 会合并成：
+
+```text
+tradock_db5_eval_pack_20260714_154813_portable.tar.gz
+```
+
+然后恢复：
+
+```text
+/root/PPCBench
+/root/autodl-tmp/tools/hdocklite_full
+/root/TraDock/Trained_models/pretrain_with_sasa/TransformerDock_best.chk
+```
+
+如果要走 GitHub Release 附件和可选的 conda-pack 环境：
+
+```bash
 bash scripts/bootstrap_full_eval.sh
 ```
 
@@ -375,7 +396,8 @@ bash scripts/verify_full_eval.sh
 说明：
 
 - `environment_full.yml` 只负责 Python/conda 依赖。
-- DB5 / PPCBench、HDOCKlite、默认 checkpoint 由 Release portable 包恢复。
+- DB5 / PPCBench、HDOCKlite、默认 checkpoint 可由仓库 `portable_data/`
+  直接恢复，也可由 Release portable 包恢复。
 - 如果 Release 中额外上传了 `tradock_conda_env.tar.gz`、`colabfold_conda_env.tar.gz`
   和 `colabfold_params_v3.tar.gz.part-*`，`bootstrap_full_eval.sh` 会自动恢复。
 - 没有 ColabFold 参数或 LightDock 命令时，`METHODS=hdock` 可以先跑

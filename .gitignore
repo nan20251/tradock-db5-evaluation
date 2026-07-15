@@ -24,6 +24,7 @@ env/
 tradock_db5_eval_pack_*/
 tradock_db5_eval_pack_*.tar.gz
 tradock_db5_eval_pack_*.tar.gz.sha256
+!portable_data/*.sha256
 
 # Archived scripts
 scripts_archive/
