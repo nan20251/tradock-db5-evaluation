@@ -4,6 +4,8 @@ channels:
   - nvidia
   - conda-forge
   - defaults
+# Note: ColabFold should be installed via LocalColabFold (not bare pip).
+# LightDock CLIs come from the pip package below.
 dependencies:
   - python=3.8
   - pip
@@ -25,4 +27,4 @@ dependencies:
       - torch-spline-conv
       - torch-geometric
       - lightdock
-      - colabfold
+

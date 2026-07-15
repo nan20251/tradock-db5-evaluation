@@ -17,8 +17,9 @@ if [ -f "$TRADOCK_LOCAL_ENV_FILE" ]; then
     source "$TRADOCK_LOCAL_ENV_FILE"
     PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
 fi
-PPC_ROOT="${PPC_ROOT:-${PAPER_ROOT:-/root/PPCBench}}"
-RUN_ROOT="${DB5_EVAL_RUN_ROOT:-/root/autodl-tmp/db5_three_method_eval}"
+_DATA_ROOT="${TRADOCK_DATA_ROOT:-$HOME/tradock_data}"
+PPC_ROOT="${PPC_ROOT:-${PAPER_ROOT:-$_DATA_ROOT/PPCBench}}"
+RUN_ROOT="${DB5_EVAL_RUN_ROOT:-$_DATA_ROOT/db5_three_method_eval}"
 RESULTS_ROOT="${DB5_EVAL_RESULTS_ROOT:-${RUN_ROOT}/results}"
 PAPER_EVAL_ROOT="${DB5_EVAL_PAPER_ROOT:-${RUN_ROOT}/PPCBench_eval}"
 OUT_DIR="${DB5_EVAL_OUT_DIR:-${PROJECT_ROOT}/results}"
@@ -31,15 +32,23 @@ HDOCK_NMAX="${HDOCK_NMAX:-100}"
 HDOCK_RUN_ROOT="${HDOCK_RUN_ROOT:-${RUN_ROOT}/hdock}"
 HDOCK_WORK_ROOT="${HDOCK_WORK_ROOT:-${HDOCK_RUN_ROOT}/work}"
 HDOCK_OUT_ROOT="${HDOCK_OUT_ROOT:-${RESULTS_ROOT}/${HDOCK_DATASET}}"
-if [ -z "${HDOCK_BIN:-}" ] && [ -x /root/autodl-tmp/tools/hdocklite_full/hdock ]; then
-    HDOCK_BIN=/root/autodl-tmp/tools/hdocklite_full/hdock
-else
-    HDOCK_BIN="${HDOCK_BIN:-hdock}"
+if [ -z "${HDOCK_BIN:-}" ]; then
+    if [ -x "$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/hdock" ]; then
+        HDOCK_BIN="$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/hdock"
+    elif [ -x /root/autodl-tmp/tools/hdocklite_full/hdock ]; then
+        HDOCK_BIN=/root/autodl-tmp/tools/hdocklite_full/hdock
+    else
+        HDOCK_BIN=hdock
+    fi
 fi
-if [ -z "${CREATEPL_BIN:-}" ] && [ -x /root/autodl-tmp/tools/hdocklite_full/createpl ]; then
-    CREATEPL_BIN=/root/autodl-tmp/tools/hdocklite_full/createpl
-else
-    CREATEPL_BIN="${CREATEPL_BIN:-createpl_linux}"
+if [ -z "${CREATEPL_BIN:-}" ]; then
+    if [ -x "$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/createpl" ]; then
+        CREATEPL_BIN="$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/createpl"
+    elif [ -x /root/autodl-tmp/tools/hdocklite_full/createpl ]; then
+        CREATEPL_BIN=/root/autodl-tmp/tools/hdocklite_full/createpl
+    else
+        CREATEPL_BIN=createpl_linux
+    fi
 fi
 
 AF_DATASET="${AF_DATASET:-DB5}"
@@ -49,9 +58,17 @@ AF_MODELS_PER_SEED="${AF_MODELS_PER_SEED:-5}"
 AF_RANDOM_SEED_FLAG="${AF_RANDOM_SEED_FLAG:---random-seed}"
 AF_FASTA_DIR="${AF_FASTA_DIR:-${RUN_ROOT}/colabfold_fastas/${AF_DATASET}}"
 AF_OUTPUT_ROOT="${AF_OUTPUT_ROOT:-${RUN_ROOT}/colabfold_outputs/${AF_DATASET}}"
-COLABFOLD_BIN="${COLABFOLD_BIN:-colabfold_batch}"
+if [ -z "${COLABFOLD_BIN:-}" ]; then
+    if [ -x "$HOME/localcolabfold/.pixi/envs/default/bin/colabfold_batch" ]; then
+        COLABFOLD_BIN="$HOME/localcolabfold/.pixi/envs/default/bin/colabfold_batch"
+    else
+        COLABFOLD_BIN=colabfold_batch
+    fi
+fi
+COLABFOLD_DATA="${COLABFOLD_DATA:-$_DATA_ROOT/colabfold_params_v3}"
 AF_NUM_RECYCLE="${AF_NUM_RECYCLE:-3}"
 RUN_COLABFOLD="${RUN_COLABFOLD:-0}"
+unset _DATA_ROOT
 
 LIGHTDOCK_DATASET="${LIGHTDOCK_DATASET:-DB5-u}"
 LIGHTDOCK_NMAX="${LIGHTDOCK_NMAX:-100}"
@@ -191,6 +208,25 @@ fi
 if has_method alphafold; then
     echo "=== AlphaFold/ColabFold ${AF_DATASET} ${AF_NUM_SEEDS} seeds x ${AF_MODELS_PER_SEED} models -> Top${AF_NMAX} ==="
     setup_eval_root "$AF_DATASET"
+    if [ "$RUN_COLABFOLD" = "1" ]; then
+        if ! command -v "$COLABFOLD_BIN" >/dev/null 2>&1 && [ ! -x "$COLABFOLD_BIN" ]; then
+            echo "[error] RUN_COLABFOLD=1 but ColabFold binary missing: $COLABFOLD_BIN"
+            echo "        Install LocalColabFold, then: bash scripts/setup_colabfold_paths.sh"
+            exit 1
+        fi
+        if [ ! -d "${COLABFOLD_DATA:-}" ]; then
+            echo "[error] RUN_COLABFOLD=1 but COLABFOLD_DATA missing: ${COLABFOLD_DATA:-}"
+            echo "        Place AF2 params there or run: bash scripts/setup_colabfold_paths.sh"
+            exit 1
+        fi
+    else
+        if [ ! -d "$AF_OUTPUT_ROOT" ] || ! find "$AF_OUTPUT_ROOT" -name '*.pdb' 2>/dev/null | grep -q .; then
+            echo "[error] RUN_COLABFOLD=0 but no ColabFold PDBs under $AF_OUTPUT_ROOT"
+            echo "        Set RUN_COLABFOLD=1 after installing ColabFold, or populate AF_OUTPUT_ROOT."
+            exit 1
+        fi
+        echo "RUN_COLABFOLD=0, using existing ColabFold outputs in $AF_OUTPUT_ROOT"
+    fi
     AF_FASTA_ARGS=()
     if [ -n "${AF_TARGETS:-}" ]; then
         AF_FASTA_ARGS+=(--targets "$AF_TARGETS")
@@ -230,8 +266,6 @@ if has_method alphafold; then
                 "$COLABFOLD_BIN" "${COLABFOLD_ARGS[@]}" "${SEED_ARGS[@]}" "$fasta" "$seed_out"
             done
         done
-    else
-        echo "RUN_COLABFOLD=0, using existing ColabFold outputs in $AF_OUTPUT_ROOT"
     fi
 
     AF_SCORES="${OUT_DIR}/af2m_${AF_DATASET}_top${AF_NMAX}_scores.csv"
@@ -266,6 +300,21 @@ fi
 if has_method lightdock; then
     echo "=== LightDock ${LIGHTDOCK_DATASET} Top${LIGHTDOCK_NMAX} ==="
     setup_eval_root "$LIGHTDOCK_DATASET"
+    if [ "$RUN_LIGHTDOCK" = "1" ]; then
+        for cmd in lightdock3_setup.py lightdock3.py lgd_generate_conformations.py; do
+            if ! command -v "$cmd" >/dev/null 2>&1; then
+                echo "[error] missing LightDock command: $cmd"
+                echo "        Install with: bash scripts/install_lightdock.sh"
+                exit 1
+            fi
+        done
+    else
+        if [ ! -d "$LIGHTDOCK_OUTPUT_ROOT" ]; then
+            echo "[error] RUN_LIGHTDOCK=0 but missing outputs: $LIGHTDOCK_OUTPUT_ROOT"
+            exit 1
+        fi
+        echo "RUN_LIGHTDOCK=0, using existing LightDock outputs in $LIGHTDOCK_OUTPUT_ROOT"
+    fi
     LIGHTDOCK_PREP_ARGS=()
     if [ -n "${LIGHTDOCK_TARGETS:-}" ]; then
         LIGHTDOCK_PREP_ARGS+=(--targets "$LIGHTDOCK_TARGETS")

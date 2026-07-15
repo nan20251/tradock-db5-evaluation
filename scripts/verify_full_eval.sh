@@ -17,14 +17,36 @@ if [ -f "$TRADOCK_LOCAL_ENV_FILE" ]; then
 fi
 
 PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
-PPC_ROOT="${PPC_ROOT:-${PAPER_ROOT:-/root/PPCBench}}"
+_DATA_ROOT="${TRADOCK_DATA_ROOT:-$HOME/tradock_data}"
+PPC_ROOT="${PPC_ROOT:-${PAPER_ROOT:-$_DATA_ROOT/PPCBench}}"
 CHECKPOINT="${CHECKPOINT:-$PROJECT_ROOT/Trained_models/pretrain_with_sasa/TransformerDock_best.chk}"
-HDOCK_BIN="${HDOCK_BIN:-/root/autodl-tmp/tools/hdocklite_full/hdock}"
-CREATEPL_BIN="${CREATEPL_BIN:-/root/autodl-tmp/tools/hdocklite_full/createpl}"
-COLABFOLD_BIN="${COLABFOLD_BIN:-colabfold_batch}"
-COLABFOLD_DATA="${COLABFOLD_DATA:-/root/autodl-tmp/colabfold_params_v3}"
+if [ -z "${HDOCK_BIN:-}" ]; then
+    if [ -x "$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/hdock" ]; then
+        HDOCK_BIN="$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/hdock"
+    else
+        HDOCK_BIN="${HDOCK_BIN:-hdock}"
+    fi
+fi
+if [ -z "${CREATEPL_BIN:-}" ]; then
+    if [ -x "$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/createpl" ]; then
+        CREATEPL_BIN="$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/createpl"
+    else
+        CREATEPL_BIN="${CREATEPL_BIN:-createpl_linux}"
+    fi
+fi
+if [ -z "${COLABFOLD_BIN:-}" ]; then
+    if [ -x "$HOME/localcolabfold/.pixi/envs/default/bin/colabfold_batch" ]; then
+        COLABFOLD_BIN="$HOME/localcolabfold/.pixi/envs/default/bin/colabfold_batch"
+    else
+        COLABFOLD_BIN="colabfold_batch"
+    fi
+fi
+COLABFOLD_DATA="${COLABFOLD_DATA:-$_DATA_ROOT/colabfold_params_v3}"
+AF_OUTPUT_ROOT="${AF_OUTPUT_ROOT:-${DB5_EVAL_RUN_ROOT:-$_DATA_ROOT/db5_three_method_eval}/colabfold_outputs/${AF_DATASET:-DB5}}"
+RUN_COLABFOLD="${RUN_COLABFOLD:-0}"
 METHODS="${METHODS:-hdock alphafold lightdock}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
+unset _DATA_ROOT
 
 fail=0
 
@@ -143,8 +165,21 @@ PY
 if has_method alphafold; then
     echo ""
     echo "=== AlphaFold/ColabFold ==="
-    check_exec "ColabFold command" "$COLABFOLD_BIN"
-    check_dir "ColabFold data" "$COLABFOLD_DATA"
+    echo "RUN_COLABFOLD=$RUN_COLABFOLD"
+    if [ "$RUN_COLABFOLD" = "1" ]; then
+        check_exec "ColabFold command" "$COLABFOLD_BIN"
+        check_dir "ColabFold data" "$COLABFOLD_DATA"
+    else
+        echo "[info] RUN_COLABFOLD=0: will use existing outputs under $AF_OUTPUT_ROOT"
+        if [ -d "$AF_OUTPUT_ROOT" ] && find "$AF_OUTPUT_ROOT" -name '*.pdb' 2>/dev/null | grep -q .; then
+            echo "[ok] existing ColabFold PDBs found under $AF_OUTPUT_ROOT"
+        else
+            echo "[missing] no ColabFold PDBs under $AF_OUTPUT_ROOT"
+            echo "          Install ColabFold and set RUN_COLABFOLD=1, or populate AF_OUTPUT_ROOT."
+            echo "          Helpers: bash scripts/setup_colabfold_paths.sh"
+            fail=1
+        fi
+    fi
 fi
 
 if has_method lightdock; then
@@ -153,6 +188,9 @@ if has_method lightdock; then
     check_command "lightdock3_setup.py" "lightdock3_setup.py"
     check_command "lightdock3.py" "lightdock3.py"
     check_command "lgd_generate_conformations.py" "lgd_generate_conformations.py"
+    if [ "$fail" -ne 0 ]; then
+        echo "          Install helper: bash scripts/install_lightdock.sh"
+    fi
 fi
 
 echo ""

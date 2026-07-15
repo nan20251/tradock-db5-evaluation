@@ -110,6 +110,24 @@ Run only the HDOCK sampling pool plus TraDock reranking:
 METHODS=hdock bash scripts/run_db5_three_method_eval.sh
 ```
 
+Install LightDock (into the active conda env), then run:
+
+```bash
+bash scripts/install_lightdock.sh
+METHODS=lightdock bash scripts/verify_full_eval.sh
+METHODS=lightdock bash scripts/run_db5_three_method_eval.sh
+```
+
+For AlphaFold/ColabFold, install LocalColabFold under `$HOME/localcolabfold`, place AF2 params under `$HOME/tradock_data/colabfold_params_v3`, then:
+
+```bash
+bash scripts/setup_colabfold_paths.sh
+METHODS=alphafold RUN_COLABFOLD=1 bash scripts/verify_full_eval.sh
+METHODS=alphafold RUN_COLABFOLD=1 bash scripts/run_db5_three_method_eval.sh
+```
+
+Defaults prefer `$HOME/tradock_data` over `/root/...` so non-root servers work without manual path exports.
+
 ## Important Paths
 
 - `transformerdock/`: model and data-loading package
