@@ -5,81 +5,49 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${TRADOCK_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-TRADOCK_ENV_FILE="${TRADOCK_ENV_FILE:-$PROJECT_ROOT/environment}"
-if [ -f "$TRADOCK_ENV_FILE" ]; then
-    # shellcheck disable=SC1090
-    source "$TRADOCK_ENV_FILE"
-    PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
-fi
-TRADOCK_LOCAL_ENV_FILE="${TRADOCK_LOCAL_ENV_FILE:-$PROJECT_ROOT/environment.local}"
-if [ -f "$TRADOCK_LOCAL_ENV_FILE" ]; then
-    # shellcheck disable=SC1090
-    source "$TRADOCK_LOCAL_ENV_FILE"
-    PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
-fi
-_DATA_ROOT="${TRADOCK_DATA_ROOT:-$HOME/tradock_data}"
-PPC_ROOT="${PPC_ROOT:-${PAPER_ROOT:-$_DATA_ROOT/PPCBench}}"
-RUN_ROOT="${DB5_EVAL_RUN_ROOT:-$_DATA_ROOT/db5_three_method_eval}"
-RESULTS_ROOT="${DB5_EVAL_RESULTS_ROOT:-${RUN_ROOT}/results}"
-PAPER_EVAL_ROOT="${DB5_EVAL_PAPER_ROOT:-${RUN_ROOT}/PPCBench_eval}"
-OUT_DIR="${DB5_EVAL_OUT_DIR:-${PROJECT_ROOT}/results}"
-CHECKPOINT="${CHECKPOINT:-${PROJECT_ROOT}/Trained_models/pretrain_with_sasa/TransformerDock_best.chk}"
+# shellcheck source=scripts/tradock_path_lib.sh
+source "$PROJECT_ROOT/scripts/tradock_path_lib.sh"
+tradock_source_env_files "$PROJECT_ROOT"
+PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
+
+# Prefer values from environment / environment.local; keep short aliases for the rest of this script.
+PPC_ROOT="${PPC_ROOT:?set PPC_ROOT in environment.local}"
+RUN_ROOT="${DB5_EVAL_RUN_ROOT:?}"
+RESULTS_ROOT="${DB5_EVAL_RESULTS_ROOT:-$RUN_ROOT/results}"
+PAPER_EVAL_ROOT="${DB5_EVAL_PAPER_ROOT:-$RUN_ROOT/PPCBench_eval}"
+OUT_DIR="${DB5_EVAL_OUT_DIR:-$PROJECT_ROOT/results}"
+CHECKPOINT="${CHECKPOINT:?}"
 METHODS="${METHODS:-hdock alphafold lightdock}"
 MIN_TARGETS="${MIN_TARGETS:-218}"
 
 HDOCK_DATASET="${HDOCK_DATASET:-DB5-u}"
 HDOCK_NMAX="${HDOCK_NMAX:-100}"
-HDOCK_RUN_ROOT="${HDOCK_RUN_ROOT:-${RUN_ROOT}/hdock}"
-HDOCK_WORK_ROOT="${HDOCK_WORK_ROOT:-${HDOCK_RUN_ROOT}/work}"
-HDOCK_OUT_ROOT="${HDOCK_OUT_ROOT:-${RESULTS_ROOT}/${HDOCK_DATASET}}"
-if [ -z "${HDOCK_BIN:-}" ]; then
-    if [ -x "$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/hdock" ]; then
-        HDOCK_BIN="$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/hdock"
-    elif [ -x /root/autodl-tmp/tools/hdocklite_full/hdock ]; then
-        HDOCK_BIN=/root/autodl-tmp/tools/hdocklite_full/hdock
-    else
-        HDOCK_BIN=hdock
-    fi
-fi
-if [ -z "${CREATEPL_BIN:-}" ]; then
-    if [ -x "$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/createpl" ]; then
-        CREATEPL_BIN="$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/createpl"
-    elif [ -x /root/autodl-tmp/tools/hdocklite_full/createpl ]; then
-        CREATEPL_BIN=/root/autodl-tmp/tools/hdocklite_full/createpl
-    else
-        CREATEPL_BIN=createpl_linux
-    fi
-fi
+HDOCK_WORK_ROOT="${HDOCK_WORK_ROOT:-$RUN_ROOT/hdock/work}"
+HDOCK_OUT_ROOT="${HDOCK_OUT_ROOT:-$RESULTS_ROOT/$HDOCK_DATASET}"
+HDOCK_BIN="${HDOCK_BIN:-hdock}"
+CREATEPL_BIN="${CREATEPL_BIN:-createpl_linux}"
 
 AF_DATASET="${AF_DATASET:-DB5}"
 AF_NMAX="${AF_NMAX:-5}"
 AF_NUM_SEEDS="${AF_NUM_SEEDS:-3}"
 AF_MODELS_PER_SEED="${AF_MODELS_PER_SEED:-5}"
 AF_RANDOM_SEED_FLAG="${AF_RANDOM_SEED_FLAG:---random-seed}"
-AF_FASTA_DIR="${AF_FASTA_DIR:-${RUN_ROOT}/colabfold_fastas/${AF_DATASET}}"
-AF_OUTPUT_ROOT="${AF_OUTPUT_ROOT:-${RUN_ROOT}/colabfold_outputs/${AF_DATASET}}"
-if [ -z "${COLABFOLD_BIN:-}" ]; then
-    if [ -x "$HOME/localcolabfold/.pixi/envs/default/bin/colabfold_batch" ]; then
-        COLABFOLD_BIN="$HOME/localcolabfold/.pixi/envs/default/bin/colabfold_batch"
-    else
-        COLABFOLD_BIN=colabfold_batch
-    fi
-fi
-COLABFOLD_DATA="${COLABFOLD_DATA:-$_DATA_ROOT/colabfold_params_v3}"
+AF_FASTA_DIR="${AF_FASTA_DIR:-$RUN_ROOT/colabfold_fastas/$AF_DATASET}"
+AF_OUTPUT_ROOT="${AF_OUTPUT_ROOT:-$RUN_ROOT/colabfold_outputs/$AF_DATASET}"
+COLABFOLD_BIN="${COLABFOLD_BIN:-colabfold_batch}"
+COLABFOLD_DATA="${COLABFOLD_DATA:-}"
 AF_NUM_RECYCLE="${AF_NUM_RECYCLE:-3}"
 RUN_COLABFOLD="${RUN_COLABFOLD:-0}"
-unset _DATA_ROOT
 
 LIGHTDOCK_DATASET="${LIGHTDOCK_DATASET:-DB5-u}"
 LIGHTDOCK_NMAX="${LIGHTDOCK_NMAX:-100}"
-LIGHTDOCK_INPUT_DIR="${LIGHTDOCK_INPUT_DIR:-${RUN_ROOT}/lightdock_inputs/${LIGHTDOCK_DATASET}}"
-LIGHTDOCK_OUTPUT_ROOT="${LIGHTDOCK_OUTPUT_ROOT:-${RUN_ROOT}/lightdock_outputs/${LIGHTDOCK_DATASET}}"
+LIGHTDOCK_INPUT_DIR="${LIGHTDOCK_INPUT_DIR:-$RUN_ROOT/lightdock_inputs/$LIGHTDOCK_DATASET}"
+LIGHTDOCK_OUTPUT_ROOT="${LIGHTDOCK_OUTPUT_ROOT:-$RUN_ROOT/lightdock_outputs/$LIGHTDOCK_DATASET}"
 LIGHTDOCK_SWARMS="${LIGHTDOCK_SWARMS:-40}"
 LIGHTDOCK_GLOWWORMS="${LIGHTDOCK_GLOWWORMS:-200}"
 LIGHTDOCK_STEPS="${LIGHTDOCK_STEPS:-100}"
 LIGHTDOCK_WORKERS="${LIGHTDOCK_WORKERS:-4}"
 RUN_LIGHTDOCK="${RUN_LIGHTDOCK:-1}"
-unset SCRIPT_DIR
 
 cd "$PROJECT_ROOT"
 mkdir -p "$RESULTS_ROOT" "$PAPER_EVAL_ROOT/dataset" "$PAPER_EVAL_ROOT/results" "$OUT_DIR"
@@ -132,9 +100,9 @@ eval_with_tradock() {
     local detail_out="$3"
     local min_targets="$4"
     local eval_limit="${5:-}"
-    EVAL_ARGS=()
+    local eval_args=()
     if [ -n "$eval_limit" ]; then
-        EVAL_ARGS+=(--limit "$eval_limit")
+        eval_args+=(--limit "$eval_limit")
     fi
     python -u examples/eval_db5_paper_tradock.py \
         --paper_root "$PAPER_EVAL_ROOT" \
@@ -144,7 +112,7 @@ eval_with_tradock() {
         --out "$detail_out" \
         --score_type "${SCORE_TYPE:-mdn}" \
         --min_targets "$min_targets" \
-        "${EVAL_ARGS[@]}"
+        "${eval_args[@]}"
 }
 
 summarize_detail() {
@@ -156,6 +124,16 @@ summarize_detail() {
         --target_out "${OUT_DIR}/${stem}.targets.csv" \
         --summary_out "${OUT_DIR}/${stem}.summary.csv" \
         --method_name "$method_name"
+}
+
+require_cmds() {
+    local cmd
+    for cmd in "$@"; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            echo "[error] missing command: $cmd"
+            return 1
+        fi
+    done
 }
 
 echo "=== DB5 three-method paper-level evaluation ==="
@@ -219,14 +197,14 @@ if has_method alphafold; then
             echo "        Place AF2 params there or run: bash scripts/setup_colabfold_paths.sh"
             exit 1
         fi
+    elif [ ! -d "$AF_OUTPUT_ROOT" ] || ! find "$AF_OUTPUT_ROOT" -name '*.pdb' 2>/dev/null | grep -q .; then
+        echo "[error] RUN_COLABFOLD=0 but no ColabFold PDBs under $AF_OUTPUT_ROOT"
+        echo "        Set RUN_COLABFOLD=1 after installing ColabFold, or populate AF_OUTPUT_ROOT."
+        exit 1
     else
-        if [ ! -d "$AF_OUTPUT_ROOT" ] || ! find "$AF_OUTPUT_ROOT" -name '*.pdb' 2>/dev/null | grep -q .; then
-            echo "[error] RUN_COLABFOLD=0 but no ColabFold PDBs under $AF_OUTPUT_ROOT"
-            echo "        Set RUN_COLABFOLD=1 after installing ColabFold, or populate AF_OUTPUT_ROOT."
-            exit 1
-        fi
         echo "RUN_COLABFOLD=0, using existing ColabFold outputs in $AF_OUTPUT_ROOT"
     fi
+
     AF_FASTA_ARGS=()
     if [ -n "${AF_TARGETS:-}" ]; then
         AF_FASTA_ARGS+=(--targets "$AF_TARGETS")
@@ -247,10 +225,8 @@ if has_method alphafold; then
             --num-models "$AF_MODELS_PER_SEED"
             --num-recycle "$AF_NUM_RECYCLE"
             --rank multimer
+            --data "$COLABFOLD_DATA"
         )
-        if [ -n "${COLABFOLD_DATA:-}" ]; then
-            COLABFOLD_ARGS+=(--data "$COLABFOLD_DATA")
-        fi
         if [ -z "${AF_SEEDS:-}" ]; then
             AF_SEEDS="$(seq 1 "$AF_NUM_SEEDS")"
         fi
@@ -301,20 +277,17 @@ if has_method lightdock; then
     echo "=== LightDock ${LIGHTDOCK_DATASET} Top${LIGHTDOCK_NMAX} ==="
     setup_eval_root "$LIGHTDOCK_DATASET"
     if [ "$RUN_LIGHTDOCK" = "1" ]; then
-        for cmd in lightdock3_setup.py lightdock3.py lgd_generate_conformations.py; do
-            if ! command -v "$cmd" >/dev/null 2>&1; then
-                echo "[error] missing LightDock command: $cmd"
-                echo "        Install with: bash scripts/install_lightdock.sh"
-                exit 1
-            fi
-        done
-    else
-        if [ ! -d "$LIGHTDOCK_OUTPUT_ROOT" ]; then
-            echo "[error] RUN_LIGHTDOCK=0 but missing outputs: $LIGHTDOCK_OUTPUT_ROOT"
+        if ! require_cmds lightdock3_setup.py lightdock3.py lgd_generate_conformations.py; then
+            echo "        Install with: bash scripts/install_lightdock.sh"
             exit 1
         fi
+    elif [ ! -d "$LIGHTDOCK_OUTPUT_ROOT" ]; then
+        echo "[error] RUN_LIGHTDOCK=0 but missing outputs: $LIGHTDOCK_OUTPUT_ROOT"
+        exit 1
+    else
         echo "RUN_LIGHTDOCK=0, using existing LightDock outputs in $LIGHTDOCK_OUTPUT_ROOT"
     fi
+
     LIGHTDOCK_PREP_ARGS=()
     if [ -n "${LIGHTDOCK_TARGETS:-}" ]; then
         LIGHTDOCK_PREP_ARGS+=(--targets "$LIGHTDOCK_TARGETS")
@@ -341,8 +314,6 @@ if has_method lightdock; then
             --steps "$LIGHTDOCK_STEPS" \
             --workers "$LIGHTDOCK_WORKERS" \
             "${LIGHTDOCK_RUN_ARGS[@]}"
-    else
-        echo "RUN_LIGHTDOCK=0, using existing LightDock outputs in $LIGHTDOCK_OUTPUT_ROOT"
     fi
 
     LIGHTDOCK_EXPORT_ARGS=()

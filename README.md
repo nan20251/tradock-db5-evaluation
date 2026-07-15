@@ -66,28 +66,18 @@ bash scripts/run_step8_eval_db5_paper.sh
 Restore the portable DB5 three-method evaluation on a new server:
 
 ```bash
-git clone https://github.com/nan20251/tradock-db5-evaluation.git /root/TraDock
-cd /root/TraDock
-bash scripts/restore_repo_data.sh
-METHODS=hdock bash scripts/verify_full_eval.sh
-```
-
-The DB5 portable data is also stored directly in the repository as split files
-under `portable_data/`, so the HDOCK evaluation data can be restored without
-GitHub Release downloads. If you want to use Release assets and optional packed
-conda environments instead:
-
-For non-root users, clone anywhere and run the same restore command:
-
-```bash
 git clone https://github.com/nan20251/tradock-db5-evaluation.git ~/tradock-db5-evaluation
 cd ~/tradock-db5-evaluation
 bash scripts/restore_repo_data.sh
 METHODS=hdock bash scripts/verify_full_eval.sh
 ```
 
-By default this restores data to `~/tradock_data` and writes
-`environment.local`, which is auto-sourced by the DB5 evaluation scripts.
+The DB5 portable data is stored under `portable_data/` as split files.
+`restore_repo_data.sh` unpacks it to `~/tradock_data` and writes
+`environment.local`, which DB5 scripts auto-source.
+
+Shared path defaults live in `scripts/tradock_path_lib.sh` and are used by
+`environment`, `verify_full_eval.sh`, and `run_db5_three_method_eval.sh`.
 
 If you want to use Release assets and optional packed conda environments
 instead:
@@ -133,6 +123,8 @@ Defaults prefer `$HOME/tradock_data` over `/root/...` so non-root servers work w
 - `transformerdock/`: model and data-loading package
 - `examples/`: training, evaluation, and dataset-preparation entry points
 - `scripts/`: operational helpers for checks, filtering, training, and evaluation
+- `scripts/tradock_path_lib.sh`: shared `$HOME/tradock_data` path helpers
+- `scripts/install_lightdock.sh` / `setup_colabfold_paths.sh`: AF/LD setup helpers
 - `data/`: lightweight metadata and exclusion lists
 - `Trained_models/`: local checkpoints
 - `results/` and `results_remote_*`: local and synced evaluation outputs

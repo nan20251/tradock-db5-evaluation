@@ -1,34 +1,23 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Generate paper-style HDOCKlite candidates for PPCBench DB5-u.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${TRADOCK_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-TRADOCK_ENV_FILE="${TRADOCK_ENV_FILE:-$PROJECT_ROOT/environment}"
-if [ -f "$TRADOCK_ENV_FILE" ]; then
-    # shellcheck disable=SC1090
-    source "$TRADOCK_ENV_FILE"
-    PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
-fi
-PAPER_ROOT="${PAPER_ROOT:-/root/PPCBench}"
-RUN_ROOT="${HDOCK_RUN_ROOT:-/root/autodl-tmp/hdock_regen_full}"
-WORK_ROOT="${HDOCK_WORK_ROOT:-${RUN_ROOT}/work}"
-OUT_ROOT_BASE="${HDOCK_OUT_ROOT_BASE:-${RUN_ROOT}/results}"
+# shellcheck source=scripts/tradock_path_lib.sh
+source "$PROJECT_ROOT/scripts/tradock_path_lib.sh"
+tradock_source_env_files "$PROJECT_ROOT"
+PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
+
+PAPER_ROOT="${PAPER_ROOT:-${PPC_ROOT:-$(tradock_default_ppc_root)}}"
+RUN_ROOT="${HDOCK_RUN_ROOT:-${DB5_EVAL_RUN_ROOT:-$(tradock_data_root)/db5_three_method_eval}/hdock}"
+WORK_ROOT="${HDOCK_WORK_ROOT:-$RUN_ROOT/work}"
+OUT_ROOT_BASE="${HDOCK_OUT_ROOT_BASE:-${DB5_EVAL_RESULTS_ROOT:-${DB5_EVAL_RUN_ROOT:-$(tradock_data_root)/db5_three_method_eval}/results}}"
 NMAX="${HDOCK_NMAX:-100}"
 DATASETS="${HDOCK_DATASETS:-DB5-u}"
-
-if [ -z "${HDOCK_BIN:-}" ] && [ -x /root/autodl-tmp/tools/hdocklite_full/hdock ]; then
-    HDOCK_BIN=/root/autodl-tmp/tools/hdocklite_full/hdock
-else
-    HDOCK_BIN="${HDOCK_BIN:-hdock}"
-fi
-if [ -z "${CREATEPL_BIN:-}" ] && [ -x /root/autodl-tmp/tools/hdocklite_full/createpl ]; then
-    CREATEPL_BIN=/root/autodl-tmp/tools/hdocklite_full/createpl
-else
-    CREATEPL_BIN="${CREATEPL_BIN:-createpl_linux}"
-fi
-unset SCRIPT_DIR
+HDOCK_BIN="${HDOCK_BIN:-$(tradock_default_hdock_bin)}"
+CREATEPL_BIN="${CREATEPL_BIN:-$(tradock_default_createpl_bin)}"
 
 cd "$PROJECT_ROOT"
 

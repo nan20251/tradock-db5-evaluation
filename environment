@@ -7,36 +7,19 @@
 # Non-root servers: defaults prefer $HOME/tradock_data over /root/...
 
 TRADOCK_ENV_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_HOME="${HOME:-/root}"
-_DATA_ROOT="${TRADOCK_DATA_ROOT:-$_HOME/tradock_data}"
+# shellcheck source=scripts/tradock_path_lib.sh
+source "$TRADOCK_ENV_DIR/scripts/tradock_path_lib.sh"
 
-# Core paths
 export TRADOCK_DIR="${TRADOCK_DIR:-$TRADOCK_ENV_DIR}"
-if [ -z "${PPC_ROOT:-}" ]; then
-    if [ -d "$_DATA_ROOT/PPCBench" ]; then
-        export PPC_ROOT="$_DATA_ROOT/PPCBench"
-    elif [ -d /root/PPCBench ]; then
-        export PPC_ROOT="/root/PPCBench"
-    else
-        export PPC_ROOT="${PAPER_ROOT:-$_DATA_ROOT/PPCBench}"
-    fi
-fi
+export PPC_ROOT="${PPC_ROOT:-$(tradock_default_ppc_root)}"
 export PAPER_ROOT="${PAPER_ROOT:-$PPC_ROOT}"
-if [ -z "${CHECKPOINT:-}" ]; then
-    if [ -f "$_DATA_ROOT/TraDock/Trained_models/pretrain_with_sasa/TransformerDock_best.chk" ]; then
-        export CHECKPOINT="$_DATA_ROOT/TraDock/Trained_models/pretrain_with_sasa/TransformerDock_best.chk"
-    else
-        export CHECKPOINT="$TRADOCK_DIR/Trained_models/pretrain_with_sasa/TransformerDock_best.chk"
-    fi
-fi
+export CHECKPOINT="${CHECKPOINT:-$(tradock_default_checkpoint "$TRADOCK_DIR")}"
 
-# Shared DB5 evaluation workspace
-export DB5_EVAL_RUN_ROOT="${DB5_EVAL_RUN_ROOT:-$_DATA_ROOT/db5_three_method_eval}"
+export DB5_EVAL_RUN_ROOT="${DB5_EVAL_RUN_ROOT:-$(tradock_data_root)/db5_three_method_eval}"
 export DB5_EVAL_RESULTS_ROOT="${DB5_EVAL_RESULTS_ROOT:-$DB5_EVAL_RUN_ROOT/results}"
 export DB5_EVAL_PAPER_ROOT="${DB5_EVAL_PAPER_ROOT:-$DB5_EVAL_RUN_ROOT/PPCBench_eval}"
 export DB5_EVAL_OUT_DIR="${DB5_EVAL_OUT_DIR:-$TRADOCK_DIR/results}"
 
-# Main evaluation switches
 export METHODS="${METHODS:-hdock alphafold lightdock}"
 export MIN_TARGETS="${MIN_TARGETS:-218}"
 export SCORE_TYPE="${SCORE_TYPE:-mdn}"
@@ -49,26 +32,8 @@ export HDOCK_RUN_ROOT="${HDOCK_RUN_ROOT:-$DB5_EVAL_RUN_ROOT/hdock}"
 export HDOCK_WORK_ROOT="${HDOCK_WORK_ROOT:-$HDOCK_RUN_ROOT/work}"
 export HDOCK_OUT_ROOT_BASE="${HDOCK_OUT_ROOT_BASE:-$HDOCK_RUN_ROOT/results}"
 export HDOCK_OUT_ROOT="${HDOCK_OUT_ROOT:-$DB5_EVAL_RESULTS_ROOT/$HDOCK_DATASET}"
-
-if [ -z "${HDOCK_BIN:-}" ]; then
-    if [ -x "$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/hdock" ]; then
-        export HDOCK_BIN="$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/hdock"
-    elif [ -x /root/autodl-tmp/tools/hdocklite_full/hdock ]; then
-        export HDOCK_BIN="/root/autodl-tmp/tools/hdocklite_full/hdock"
-    else
-        export HDOCK_BIN="hdock"
-    fi
-fi
-
-if [ -z "${CREATEPL_BIN:-}" ]; then
-    if [ -x "$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/createpl" ]; then
-        export CREATEPL_BIN="$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/createpl"
-    elif [ -x /root/autodl-tmp/tools/hdocklite_full/createpl ]; then
-        export CREATEPL_BIN="/root/autodl-tmp/tools/hdocklite_full/createpl"
-    else
-        export CREATEPL_BIN="createpl_linux"
-    fi
-fi
+export HDOCK_BIN="${HDOCK_BIN:-$(tradock_default_hdock_bin)}"
+export CREATEPL_BIN="${CREATEPL_BIN:-$(tradock_default_createpl_bin)}"
 
 # AlphaFold / ColabFold
 export AF_DATASET="${AF_DATASET:-DB5}"
@@ -80,31 +45,9 @@ export AF_FASTA_DIR="${AF_FASTA_DIR:-$DB5_EVAL_RUN_ROOT/colabfold_fastas/$AF_DAT
 export AF_OUTPUT_ROOT="${AF_OUTPUT_ROOT:-$DB5_EVAL_RUN_ROOT/colabfold_outputs/$AF_DATASET}"
 export AF_NUM_RECYCLE="${AF_NUM_RECYCLE:-3}"
 export RUN_COLABFOLD="${RUN_COLABFOLD:-0}"
-
-if [ -z "${COLABFOLD_BIN:-}" ]; then
-    if [ -x "$_HOME/localcolabfold/.pixi/envs/default/bin/colabfold_batch" ]; then
-        export COLABFOLD_BIN="$_HOME/localcolabfold/.pixi/envs/default/bin/colabfold_batch"
-    elif [ -x "$_HOME/conda_envs/colabfold/bin/colabfold_batch" ]; then
-        export COLABFOLD_BIN="$_HOME/conda_envs/colabfold/bin/colabfold_batch"
-    elif [ -x "$_DATA_ROOT/conda_envs/colabfold/bin/colabfold_batch" ]; then
-        export COLABFOLD_BIN="$_DATA_ROOT/conda_envs/colabfold/bin/colabfold_batch"
-    else
-        export COLABFOLD_BIN="colabfold_batch"
-    fi
-fi
-
-if [ -z "${COLABFOLD_DATA:-}" ]; then
-    if [ -d "$_DATA_ROOT/colabfold_params_v3" ]; then
-        export COLABFOLD_DATA="$_DATA_ROOT/colabfold_params_v3"
-    elif [ -d "$_HOME/autodl-tmp/colabfold_params_v3" ]; then
-        export COLABFOLD_DATA="$_HOME/autodl-tmp/colabfold_params_v3"
-    elif [ -d /root/autodl-tmp/colabfold_params_v3 ]; then
-        export COLABFOLD_DATA="/root/autodl-tmp/colabfold_params_v3"
-    else
-        export COLABFOLD_DATA="$_DATA_ROOT/colabfold_params_v3"
-    fi
-fi
-export COLABFOLD_ENV="${COLABFOLD_ENV:-$_HOME/conda_envs/colabfold}"
+export COLABFOLD_BIN="${COLABFOLD_BIN:-$(tradock_default_colabfold_bin)}"
+export COLABFOLD_DATA="${COLABFOLD_DATA:-$(tradock_default_colabfold_data)}"
+export COLABFOLD_ENV="${COLABFOLD_ENV:-$(tradock_home)/conda_envs/colabfold}"
 
 # LightDock
 export LIGHTDOCK_DATASET="${LIGHTDOCK_DATASET:-DB5-u}"
@@ -117,4 +60,4 @@ export LIGHTDOCK_STEPS="${LIGHTDOCK_STEPS:-100}"
 export LIGHTDOCK_WORKERS="${LIGHTDOCK_WORKERS:-4}"
 export RUN_LIGHTDOCK="${RUN_LIGHTDOCK:-1}"
 
-unset TRADOCK_ENV_DIR _HOME _DATA_ROOT
+unset TRADOCK_ENV_DIR

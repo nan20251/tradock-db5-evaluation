@@ -5,48 +5,21 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${TRADOCK_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-TRADOCK_ENV_FILE="${TRADOCK_ENV_FILE:-$PROJECT_ROOT/environment}"
-if [ -f "$TRADOCK_ENV_FILE" ]; then
-    # shellcheck disable=SC1090
-    source "$TRADOCK_ENV_FILE"
-fi
-TRADOCK_LOCAL_ENV_FILE="${TRADOCK_LOCAL_ENV_FILE:-$PROJECT_ROOT/environment.local}"
-if [ -f "$TRADOCK_LOCAL_ENV_FILE" ]; then
-    # shellcheck disable=SC1090
-    source "$TRADOCK_LOCAL_ENV_FILE"
-fi
-
+# shellcheck source=scripts/tradock_path_lib.sh
+source "$PROJECT_ROOT/scripts/tradock_path_lib.sh"
+tradock_source_env_files "$PROJECT_ROOT"
 PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
-_DATA_ROOT="${TRADOCK_DATA_ROOT:-$HOME/tradock_data}"
-PPC_ROOT="${PPC_ROOT:-${PAPER_ROOT:-$_DATA_ROOT/PPCBench}}"
-CHECKPOINT="${CHECKPOINT:-$PROJECT_ROOT/Trained_models/pretrain_with_sasa/TransformerDock_best.chk}"
-if [ -z "${HDOCK_BIN:-}" ]; then
-    if [ -x "$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/hdock" ]; then
-        HDOCK_BIN="$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/hdock"
-    else
-        HDOCK_BIN="${HDOCK_BIN:-hdock}"
-    fi
-fi
-if [ -z "${CREATEPL_BIN:-}" ]; then
-    if [ -x "$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/createpl" ]; then
-        CREATEPL_BIN="$_DATA_ROOT/autodl-tmp/tools/hdocklite_full/createpl"
-    else
-        CREATEPL_BIN="${CREATEPL_BIN:-createpl_linux}"
-    fi
-fi
-if [ -z "${COLABFOLD_BIN:-}" ]; then
-    if [ -x "$HOME/localcolabfold/.pixi/envs/default/bin/colabfold_batch" ]; then
-        COLABFOLD_BIN="$HOME/localcolabfold/.pixi/envs/default/bin/colabfold_batch"
-    else
-        COLABFOLD_BIN="colabfold_batch"
-    fi
-fi
-COLABFOLD_DATA="${COLABFOLD_DATA:-$_DATA_ROOT/colabfold_params_v3}"
-AF_OUTPUT_ROOT="${AF_OUTPUT_ROOT:-${DB5_EVAL_RUN_ROOT:-$_DATA_ROOT/db5_three_method_eval}/colabfold_outputs/${AF_DATASET:-DB5}}"
+
+PPC_ROOT="${PPC_ROOT:-$(tradock_default_ppc_root)}"
+CHECKPOINT="${CHECKPOINT:-$(tradock_default_checkpoint "$PROJECT_ROOT")}"
+HDOCK_BIN="${HDOCK_BIN:-$(tradock_default_hdock_bin)}"
+CREATEPL_BIN="${CREATEPL_BIN:-$(tradock_default_createpl_bin)}"
+COLABFOLD_BIN="${COLABFOLD_BIN:-$(tradock_default_colabfold_bin)}"
+COLABFOLD_DATA="${COLABFOLD_DATA:-$(tradock_default_colabfold_data)}"
+AF_OUTPUT_ROOT="${AF_OUTPUT_ROOT:-${DB5_EVAL_RUN_ROOT:-$(tradock_data_root)/db5_three_method_eval}/colabfold_outputs/${AF_DATASET:-DB5}}"
 RUN_COLABFOLD="${RUN_COLABFOLD:-0}"
 METHODS="${METHODS:-hdock alphafold lightdock}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
-unset _DATA_ROOT
 
 fail=0
 
@@ -114,6 +87,7 @@ echo ""
 
 check_file "three-method runner" "$PROJECT_ROOT/scripts/run_db5_three_method_eval.sh"
 check_file "environment file" "$PROJECT_ROOT/environment"
+check_file "path helpers" "$PROJECT_ROOT/scripts/tradock_path_lib.sh"
 check_file "TraDock checkpoint" "$CHECKPOINT"
 check_dir "PPCBench root" "$PPC_ROOT"
 check_dir "PPCBench evaluate" "$PPC_ROOT/evaluate"
@@ -185,10 +159,11 @@ fi
 if has_method lightdock; then
     echo ""
     echo "=== LightDock ==="
+    before_fail=$fail
     check_command "lightdock3_setup.py" "lightdock3_setup.py"
     check_command "lightdock3.py" "lightdock3.py"
     check_command "lgd_generate_conformations.py" "lgd_generate_conformations.py"
-    if [ "$fail" -ne 0 ]; then
+    if [ "$fail" -ne "$before_fail" ]; then
         echo "          Install helper: bash scripts/install_lightdock.sh"
     fi
 fi
