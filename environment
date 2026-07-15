@@ -1,0 +1,72 @@
+# TraDock DB5 evaluation environment.
+# Source this file before running DB5 scripts, or let the scripts auto-source it.
+#
+# Override any value from the command line, for example:
+#   METHODS="hdock" HDOCK_LIMIT=5 bash scripts/run_db5_three_method_eval.sh
+
+TRADOCK_ENV_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Core paths
+export TRADOCK_DIR="${TRADOCK_DIR:-$TRADOCK_ENV_DIR}"
+export PPC_ROOT="${PPC_ROOT:-${PAPER_ROOT:-/root/PPCBench}}"
+export PAPER_ROOT="${PAPER_ROOT:-$PPC_ROOT}"
+export CHECKPOINT="${CHECKPOINT:-$TRADOCK_DIR/Trained_models/pretrain_with_sasa/TransformerDock_best.chk}"
+
+# Shared DB5 evaluation workspace
+export DB5_EVAL_RUN_ROOT="${DB5_EVAL_RUN_ROOT:-/root/autodl-tmp/db5_three_method_eval}"
+export DB5_EVAL_RESULTS_ROOT="${DB5_EVAL_RESULTS_ROOT:-$DB5_EVAL_RUN_ROOT/results}"
+export DB5_EVAL_PAPER_ROOT="${DB5_EVAL_PAPER_ROOT:-$DB5_EVAL_RUN_ROOT/PPCBench_eval}"
+export DB5_EVAL_OUT_DIR="${DB5_EVAL_OUT_DIR:-$TRADOCK_DIR/results}"
+
+# Main evaluation switches
+export METHODS="${METHODS:-hdock alphafold lightdock}"
+export MIN_TARGETS="${MIN_TARGETS:-218}"
+export SCORE_TYPE="${SCORE_TYPE:-mdn}"
+
+# HDOCK / HDOCKlite
+export HDOCK_DATASET="${HDOCK_DATASET:-DB5-u}"
+export HDOCK_DATASETS="${HDOCK_DATASETS:-$HDOCK_DATASET}"
+export HDOCK_NMAX="${HDOCK_NMAX:-100}"
+export HDOCK_RUN_ROOT="${HDOCK_RUN_ROOT:-$DB5_EVAL_RUN_ROOT/hdock}"
+export HDOCK_WORK_ROOT="${HDOCK_WORK_ROOT:-$HDOCK_RUN_ROOT/work}"
+export HDOCK_OUT_ROOT_BASE="${HDOCK_OUT_ROOT_BASE:-$HDOCK_RUN_ROOT/results}"
+export HDOCK_OUT_ROOT="${HDOCK_OUT_ROOT:-$DB5_EVAL_RESULTS_ROOT/$HDOCK_DATASET}"
+
+if [ -z "${HDOCK_BIN:-}" ] && [ -x /root/autodl-tmp/tools/hdocklite_full/hdock ]; then
+    export HDOCK_BIN="/root/autodl-tmp/tools/hdocklite_full/hdock"
+else
+    export HDOCK_BIN="${HDOCK_BIN:-hdock}"
+fi
+
+if [ -z "${CREATEPL_BIN:-}" ] && [ -x /root/autodl-tmp/tools/hdocklite_full/createpl ]; then
+    export CREATEPL_BIN="/root/autodl-tmp/tools/hdocklite_full/createpl"
+else
+    export CREATEPL_BIN="${CREATEPL_BIN:-createpl_linux}"
+fi
+
+# AlphaFold / ColabFold
+export AF_DATASET="${AF_DATASET:-DB5}"
+export AF_NMAX="${AF_NMAX:-5}"
+export AF_NUM_SEEDS="${AF_NUM_SEEDS:-3}"
+export AF_MODELS_PER_SEED="${AF_MODELS_PER_SEED:-5}"
+export AF_RANDOM_SEED_FLAG="${AF_RANDOM_SEED_FLAG:---random-seed}"
+export AF_FASTA_DIR="${AF_FASTA_DIR:-$DB5_EVAL_RUN_ROOT/colabfold_fastas/$AF_DATASET}"
+export AF_OUTPUT_ROOT="${AF_OUTPUT_ROOT:-$DB5_EVAL_RUN_ROOT/colabfold_outputs/$AF_DATASET}"
+export COLABFOLD_BIN="${COLABFOLD_BIN:-colabfold_batch}"
+export COLABFOLD_DATA="${COLABFOLD_DATA:-/root/autodl-tmp/colabfold_params_v3}"
+export COLABFOLD_ENV="${COLABFOLD_ENV:-/root/autodl-tmp/conda_envs/colabfold}"
+export AF_NUM_RECYCLE="${AF_NUM_RECYCLE:-3}"
+export RUN_COLABFOLD="${RUN_COLABFOLD:-0}"
+
+# LightDock
+export LIGHTDOCK_DATASET="${LIGHTDOCK_DATASET:-DB5-u}"
+export LIGHTDOCK_NMAX="${LIGHTDOCK_NMAX:-100}"
+export LIGHTDOCK_INPUT_DIR="${LIGHTDOCK_INPUT_DIR:-$DB5_EVAL_RUN_ROOT/lightdock_inputs/$LIGHTDOCK_DATASET}"
+export LIGHTDOCK_OUTPUT_ROOT="${LIGHTDOCK_OUTPUT_ROOT:-$DB5_EVAL_RUN_ROOT/lightdock_outputs/$LIGHTDOCK_DATASET}"
+export LIGHTDOCK_SWARMS="${LIGHTDOCK_SWARMS:-40}"
+export LIGHTDOCK_GLOWWORMS="${LIGHTDOCK_GLOWWORMS:-200}"
+export LIGHTDOCK_STEPS="${LIGHTDOCK_STEPS:-100}"
+export LIGHTDOCK_WORKERS="${LIGHTDOCK_WORKERS:-4}"
+export RUN_LIGHTDOCK="${RUN_LIGHTDOCK:-1}"
+
+unset TRADOCK_ENV_DIR

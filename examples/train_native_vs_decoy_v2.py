@@ -473,10 +473,13 @@ def main():
         for row in reader:
             stems.add(row['stem'])
     stems = sorted(stems)
+    if len(stems) < 2:
+        raise RuntimeError('至少需要 2 个带 decoy 的 target 才能切 train/val')
+    val_targets = min(args.val_targets, len(stems) - 1)
     rng = random.Random(args.seed)
     rng.shuffle(stems)
-    val_stems = set(stems[:args.val_targets])
-    train_stems = set(stems[args.val_targets:])
+    val_stems = set(stems[:val_targets])
+    train_stems = set(stems[val_targets:])
     print(f"Train stems: {len(train_stems)}, Val stems: {len(val_stems)}")
 
     train_set = MixedDataset(

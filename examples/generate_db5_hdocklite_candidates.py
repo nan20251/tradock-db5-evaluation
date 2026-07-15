@@ -13,6 +13,10 @@ Default docking command:
   hdock receptor.pdb ligand.pdb -out hdock.out
   createpl_linux hdock.out topN_complex.pdb -nmax N -complex -models
 
+Some HDOCKlite builds ignore the requested output paths and always write
+Hdock.out plus model_1.pdb, model_2.pdb, ... in the working directory. This
+script normalizes those side outputs into the requested paper-style layout.
+
 If a local HDOCKlite package uses a different CLI, pass --hdock_template
 and/or --createpl_template.
 """
@@ -190,6 +194,41 @@ def run_createpl(args, pdbid, hdock_out, models_pdb, work_dir):
     return run_command(cmd, work_dir, log_path)
 
 
+def unlink_if_exists(path):
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def normalize_hdock_output(work_dir, hdock_out):
+    if hdock_out.exists():
+        return
+    fixed_out = work_dir / 'Hdock.out'
+    if fixed_out.exists():
+        shutil.move(str(fixed_out), str(hdock_out))
+
+
+def clear_createpl_side_outputs(work_dir):
+    for path in work_dir.glob('model_*.pdb'):
+        unlink_if_exists(path)
+
+
+def normalize_createpl_output(work_dir, models_pdb, nmax):
+    if models_pdb.exists():
+        return
+
+    model_paths = [work_dir / f'model_{rank}.pdb' for rank in range(1, nmax + 1)]
+    if not all(path.exists() for path in model_paths):
+        return
+
+    with open(models_pdb, 'w') as out:
+        for path in model_paths:
+            with open(path, 'r') as inp:
+                shutil.copyfileobj(inp, out)
+            out.write('\n')
+
+
 def parse_models(pdb_path):
     models = []
     current = []
@@ -339,13 +378,23 @@ def process_target(args, target, index, total):
             'out_root': str(out_root),
         }
 
+    normalize_hdock_output(work_dir, hdock_out)
     if args.overwrite or not hdock_out.exists():
+        if args.overwrite:
+            unlink_if_exists(hdock_out)
+            unlink_if_exists(work_dir / 'Hdock.out')
         run_hdock(args, pdbid, receptor, ligand, hdock_out, work_dir)
+        normalize_hdock_output(work_dir, hdock_out)
     if not hdock_out.exists():
         raise RuntimeError(f'HDOCK did not create expected output: {hdock_out}')
 
+    normalize_createpl_output(work_dir, models_pdb, args.nmax)
     if args.overwrite or not models_pdb.exists():
+        if args.overwrite:
+            unlink_if_exists(models_pdb)
+            clear_createpl_side_outputs(work_dir)
         run_createpl(args, pdbid, hdock_out, models_pdb, work_dir)
+        normalize_createpl_output(work_dir, models_pdb, args.nmax)
     if not models_pdb.exists():
         raise RuntimeError(f'createpl did not create expected model file: {models_pdb}')
 
@@ -394,7 +443,7 @@ def main():
                         help='Optional shell template overriding the HDOCK command')
     parser.add_argument('--createpl_template', default=os.environ.get('CREATEPL_TEMPLATE', ''),
                         help='Optional shell template overriding the createpl command')
-    parser.add_argument('--nmax', type=int, default=5,
+    parser.add_argument('--nmax', type=int, default=100,
                         help='Number of ranked HDOCK poses to export')
     parser.add_argument('--targets', default='',
                         help='Comma-separated PDB IDs for a subset run')

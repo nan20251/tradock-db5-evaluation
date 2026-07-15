@@ -50,6 +50,13 @@ CHECKPOINT=Trained_models/pretrain_with_sasa/TransformerDock_best.chk \
 bash scripts/run_step7_eval.sh
 ```
 
+Generate LightDock decoys from a small native set and fine-tune:
+
+```bash
+PDB_DIR=/path/to/native_pdbs TARGET_LIMIT=10 \
+bash scripts/run_step6_lightdock_finetune.sh
+```
+
 Run DB5 paper-style evaluation:
 
 ```bash

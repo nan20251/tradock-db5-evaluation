@@ -50,6 +50,7 @@ TraDock/
 │   ├── quick_check.py         # 环境自检脚本（Python）
 │   ├── quick_check_remote.sh  # 远端环境检查（Bash）
 │   ├── run_step2_pretrain.sh  # 11维 DIPS 预训练
+│   ├── run_step6_lightdock_finetune.sh
 │   ├── run_step7_eval.sh      # CAPRI 评估
 │   ├── run_step8_eval_db5_paper.sh
 │   ├── fix_pdb_elements.py    # PDB 元素列修复工具

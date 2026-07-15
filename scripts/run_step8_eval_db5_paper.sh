@@ -2,7 +2,14 @@
 # Step 8: paper-aligned DB5 apo/holo evaluation for TraDock reranking.
 
 set -e
-PROJECT_ROOT="${TRADOCK_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${TRADOCK_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+TRADOCK_ENV_FILE="${TRADOCK_ENV_FILE:-$PROJECT_ROOT/environment}"
+if [ -f "$TRADOCK_ENV_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$TRADOCK_ENV_FILE"
+    PROJECT_ROOT="${TRADOCK_DIR:-$PROJECT_ROOT}"
+fi
 PAPER_ROOT="${PAPER_ROOT:-/root/PPCBench}"
 CHECKPOINT="${CHECKPOINT:-Trained_models/pretrain_with_sasa/TransformerDock_best.chk}"
 DB5_HOLO_DATASET="${DB5_HOLO_DATASET:-DB5}"
@@ -10,6 +17,7 @@ DB5_APO_DATASET="${DB5_APO_DATASET:-DB5-u}"
 HOLO_POSE_MODELS="${HOLO_POSE_MODELS:-hdock_1,hdock_2,hdock_3,hdock_4,hdock_5}"
 APO_POSE_MODELS="${APO_POSE_MODELS:-hdock_1,hdock_2,hdock_3,hdock_4,hdock_5}"
 MIN_TARGETS="${MIN_TARGETS:-218}"
+unset SCRIPT_DIR
 
 cd "$PROJECT_ROOT"
 mkdir -p results

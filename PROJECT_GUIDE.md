@@ -36,6 +36,30 @@ bash scripts/run_step2_pretrain.sh
 bash scripts/run_step7_eval.sh
 ```
 
+## LightDock 微调
+
+输入 native PDB 目录支持两种格式：
+
+```text
+<stem>.pdb + <stem>.chains
+<stem>_receptor.pdb + <stem>_ligand.pdb
+```
+
+一键生成 LightDock decoy、转 surface、再做 native-vs-decoy 微调：
+
+```bash
+PDB_DIR=/path/to/native_pdbs TARGET_LIMIT=10 \
+bash scripts/run_step6_lightdock_finetune.sh
+```
+
+小规模检查：
+
+```bash
+PDB_DIR=/path/to/native_pdbs TARGET_LIMIT=2 SWARMS=5 GLOWWORMS=20 STEPS=20 \
+EPOCHS=2 BATCHES_PER_EPOCH=20 VAL_BATCHES_PER_EPOCH=5 \
+bash scripts/run_step6_lightdock_finetune.sh
+```
+
 ## 说明
 
 旧的 AutoDL 部署长文档、恢复指南和归档流程已移除，避免继续引用不存在的测试脚本和旧路径。

@@ -77,7 +77,80 @@ read_ply()
   -> DeepDock_PPI
 ```
 
-## 4. 模型和打分
+## 4. PLY 怎么生成
+
+PLY 由 PDB 结构生成，核心函数是：
+
+```text
+examples/surface_gen.py
+  pdb_to_surface_ply(pdb_path, ply_path)
+```
+
+生成流程：
+
+1. 用 Biopython 读取 PDB 原子。
+2. 去掉水、氢原子和明显无关原子。
+3. 给每个原子分配 VdW 半径。
+4. 在每个原子的 `VdW + probe_radius` 球面上采样点。
+5. 删除落在其他原子球内部的点，留下近似 solvent-accessible surface。
+6. 用 Open3D 做 voxel downsample。
+7. 用 Open3D 估计 surface normal。
+8. 用 FreeSASA 计算 SASA / rSASA；失败时用 fallback。
+9. 每个 surface 点映射到最近原子，再取残基物化特征。
+10. 用局部 PCA 估计 curvature 和 shape_index。
+11. 用 ball-pivoting 尝试重建三角面。
+12. 写出 `.ply`。
+
+输出 PLY 的 vertex 字段：
+
+```text
+x y z
+nx ny nz
+charge
+hydrophobicity
+hbond_donor
+hbond_acceptor
+curvature
+shape_index
+aa_polar
+rSASA
+```
+
+其中：
+
+- `x y z` 是表面点坐标，不属于 11 维节点特征。
+- `nx ny nz ... rSASA` 是模型读取的 11 维节点特征。
+- 如果没有 face，`read_ply()` 会退化为 kNN 边。
+
+单个 PDB 生成 PLY：
+
+```bash
+python examples/surface_gen.py \
+  --pdb receptor.pdb \
+  --out receptor.ply \
+  --voxel_size 3.5
+```
+
+LightDock 微调时有两条 PLY 生成路径：
+
+```text
+native.pdb
+  -> prep_lightdock_native_surfaces.py
+  -> {stem}_receptor.ply / {stem}_ligand.ply / pairs.csv
+
+swarm_*/lightdock_*.pdb
+  -> prep_lightdock_decoys.py
+  -> {stem}_d{id}_receptor.ply / {stem}_d{id}_ligand.ply / decoys.csv
+```
+
+对应一键脚本：
+
+```bash
+PDB_DIR=/path/to/native_pdbs TARGET_LIMIT=10 \
+bash scripts/run_step6_lightdock_finetune.sh
+```
+
+## 5. 模型和打分
 
 核心模型在 `transformerdock/models.py`。
 
@@ -97,7 +170,7 @@ dist_threshold = 10.0 Å
 
 评估时对一个 target 的所有 decoy 逐个打分，然后按 score 从高到低排序。
 
-## 5. CAPRI 113 评估结果
+## 6. CAPRI 113 评估结果
 
 当前默认 checkpoint：
 
@@ -114,7 +187,7 @@ DockQ positive threshold = 0.23
 denominator = all targets
 ```
 
-### 5.1 Top-k 成功率
+### 6.1 Top-k 成功率
 
 `fnat > 0.3`：
 
@@ -130,7 +203,7 @@ denominator = all targets
 | TraDock | 29.2% | 39.8% | 45.1% | 49.6% | 57.5% | 67.3% |
 | DeepRank-GNN-ESM | 27.4% | 32.7% | 40.7% | 48.7% | 53.1% | 67.3% |
 
-### 5.2 最高 fnat / 最高 DockQ
+### 6.2 最高 fnat / 最高 DockQ
 
 全局最高 fnat decoy：
 
@@ -151,7 +224,7 @@ Oracle 覆盖率：
 | best fnat | `fnat >= 0.3` | 76 / 113 | 67.3% |
 | best DockQ | `DockQ >= 0.23` | 78 / 113 | 69.0% |
 
-### 5.3 结果解读
+### 6.3 结果解读
 
 简单结论：
 
@@ -160,9 +233,9 @@ Oracle 覆盖率：
 - 但平均 Spearman 仍低，说明整体排序相关性弱。
 - `success@100` 明显高于 `success@1`，说明很多 target 的好 decoy 在候选里，但没有排到最前面。
 
-## 6. 主要问题
+## 7. 主要问题
 
-### 6.1 排序信号不够强
+### 7.1 排序信号不够强
 
 模型能找到一部分好 decoy，但 top1 不稳定。
 
@@ -172,7 +245,7 @@ Oracle 覆盖率：
 - top5/top10 明显好于 top1
 - mean Spearman 只有 0.082
 
-### 6.2 训练目标和评估目标不完全一致
+### 7.2 训练目标和评估目标不完全一致
 
 训练主要学 native interface distance likelihood。
 
@@ -184,7 +257,7 @@ Oracle 覆盖率：
 
 这需要 ranking 信号。
 
-### 6.3 只靠 MDN score 不够
+### 7.3 只靠 MDN score 不够
 
 MDN score 看局部距离概率，但 docking 排序还需要考虑：
 
@@ -195,7 +268,7 @@ MDN score 看局部距离概率，但 docking 排序还需要考虑：
 - electrostatic / hydrophobic consistency
 - target 内归一化
 
-### 6.4 19 维实验失败原因
+### 7.4 19 维实验失败原因
 
 19 维 pair-aware 实验已经移除。
 
@@ -206,9 +279,9 @@ MDN score 看局部距离概率，但 docking 排序还需要考虑：
 - CAPRI 上 score 和 fnat 相关性变差
 - 结果是好 decoy 仍在候选里，但排序更差
 
-## 7. 改进方向
+## 8. 改进方向
 
-### 7.1 加 ranking loss
+### 8.1 加 ranking loss
 
 目标：让好 decoy 分数高于差 decoy。
 
@@ -232,7 +305,7 @@ same target 内采样两个 decoy
 要求 score_a > score_b
 ```
 
-### 7.2 做 target 内 score 校准
+### 8.2 做 target 内 score 校准
 
 不同 target 的 score 尺度不一定一致。
 
@@ -246,7 +319,7 @@ final_score = zscore(mdn_score)
 
 先不要上复杂模型，先做线性组合和验证集搜索。
 
-### 7.3 加轻量物理后处理
+### 8.3 加轻量物理后处理
 
 不要直接重启 19 维模型。
 
@@ -266,7 +339,7 @@ final_score = zscore(mdn_score)
 - buried SASA 近似
 - DockQ/fnat 可用时只作为训练 label，不作为测试输入
 
-### 7.4 建一个小 validation set
+### 8.4 建一个小 validation set
 
 不能只看 DIPS test loss。
 
@@ -285,7 +358,7 @@ test: final CAPRI / DB5 report
 - mean Spearman
 - mean AUC
 
-### 7.5 失败案例优先修
+### 8.5 失败案例优先修
 
 先看 `results/top1_failure_analysis_tradock_fnat03.csv`。
 
@@ -294,7 +367,7 @@ test: final CAPRI / DB5 report
 - 好 decoy 排名 2-10：适合轻量 rerank
 - 好 decoy 排名很后：需要训练目标改进
 
-## 8. 推荐下一步
+## 9. 推荐下一步
 
 短期：
 
@@ -309,13 +382,37 @@ test: final CAPRI / DB5 report
 2. 训练 native/decoy 混合模型。
 3. 和当前 `pretrain_with_sasa` checkpoint 对比。
 
+LightDock 微调路线：
+
+1. 准备少量 native PDB。
+2. 用 LightDock 为每个 native 生成 decoy。
+3. 把 native 和 decoy 都转成 11 维 surface PLY。
+4. 从 `pretrain_with_sasa` 初始化。
+5. 用 `train_native_vs_decoy_v2.py` 做 native-vs-decoy 微调。
+6. 回到 CAPRI 113 做独立评估。
+
+脚本入口：
+
+```bash
+PDB_DIR=/path/to/native_pdbs TARGET_LIMIT=10 \
+bash scripts/run_step6_lightdock_finetune.sh
+```
+
+调试时可以先小跑：
+
+```bash
+PDB_DIR=/path/to/native_pdbs TARGET_LIMIT=2 SWARMS=5 GLOWWORMS=20 STEPS=20 \
+EPOCHS=2 BATCHES_PER_EPOCH=20 VAL_BATCHES_PER_EPOCH=5 \
+bash scripts/run_step6_lightdock_finetune.sh
+```
+
 长期：
 
 1. 重新设计 pair-aware 特征。
 2. 先保证输入层继承 11 维权重。
 3. 每次新增特征都必须配套 ranking validation。
 
-## 9. 当前不要做的事
+## 10. 当前不要做的事
 
 - 不要直接恢复 19 维主流程。
 - 不要只看 DIPS loss 判断模型好坏。

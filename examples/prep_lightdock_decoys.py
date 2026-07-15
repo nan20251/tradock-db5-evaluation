@@ -191,11 +191,18 @@ def process_decoy(job):
             'classification': classify(dockq)}
 
 
-def iter_jobs(ld_root, out_dir, voxel_size, max_per_target=None):
+def _iter_stem_dirs(ld_root, limit=None):
+    stem_dirs = sorted(d for d in glob.glob(os.path.join(ld_root, '*'))
+                       if os.path.isdir(d))
+    if limit:
+        stem_dirs = stem_dirs[:limit]
+    return stem_dirs
+
+
+def iter_jobs(ld_root, out_dir, voxel_size, max_per_target=None, limit=None):
     """生成器版 collect_jobs：streaming yield job，避免 50 万 tuple 同时驻留内存。
     顺序：按 stem_dir 排序，再按 decoy 文件排序。"""
-    for stem_dir in sorted(d for d in glob.glob(os.path.join(ld_root, '*'))
-                            if os.path.isdir(d)):
+    for stem_dir in _iter_stem_dirs(ld_root, limit):
         stem = os.path.basename(stem_dir)
         native = os.path.join(stem_dir, 'native.pdb')
         rec_f = os.path.join(stem_dir, 'rec_chains.txt')
@@ -222,11 +229,10 @@ def iter_jobs(ld_root, out_dir, voxel_size, max_per_target=None):
                    out_dir, voxel_size)
 
 
-def count_jobs(ld_root, max_per_target=None):
+def count_jobs(ld_root, max_per_target=None, limit=None):
     """轻量计数（不构造完整 tuple），用于进度报告。"""
     total = 0
-    for stem_dir in sorted(d for d in glob.glob(os.path.join(ld_root, '*'))
-                            if os.path.isdir(d)):
+    for stem_dir in _iter_stem_dirs(ld_root, limit):
         rec_f = os.path.join(stem_dir, 'rec_chains.txt')
         lig_f = os.path.join(stem_dir, 'lig_chains.txt')
         native = os.path.join(stem_dir, 'native.pdb')
@@ -253,6 +259,8 @@ def main():
     p.add_argument('--voxel_size', type=float, default=3.5)
     p.add_argument('--workers', type=int, default=8)
     p.add_argument('--max_per_target', type=int, default=None)
+    p.add_argument('--limit', type=int, default=None,
+                   help='只处理前 N 个 target（按目录名排序，调试用）')
     p.add_argument('--report_every', type=int, default=200)
     p.add_argument('--max_in_flight', type=int, default=None,
                    help='in-flight job 上限，默认 workers*8。N>1000 时调小可省内存')
@@ -270,13 +278,13 @@ def main():
     print(f'workers:          {args.workers}  (in_flight 上限 {max_in_flight})')
     print('---')
 
-    total_est = count_jobs(args.ld_root, args.max_per_target)
+    total_est = count_jobs(args.ld_root, args.max_per_target, args.limit)
     print(f'预估 decoy 任务数: {total_est}')
     if total_est == 0:
         sys.exit(1)
 
     job_iter = iter_jobs(args.ld_root, args.out_dir, args.voxel_size,
-                         args.max_per_target)
+                         args.max_per_target, args.limit)
 
     rows, fails = [], []
     n_ok = n_fail = 0
