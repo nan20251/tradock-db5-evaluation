@@ -270,7 +270,37 @@ Success@10: 51 / 113 = 45.13%
 Success@100: 75 / 113 = 66.37%
 ```
 
-## 9. Compare TraDock And BioScore
+## 9. CAPRI Score v2022 Difficult / Easy (Shirali split)
+
+Target lists (from Shirali scores&labels CSVs):
+
+- `data/capri_v2022/capri_v2022_difficult_targets.txt` (28)
+- `data/capri_v2022/capri_v2022_easy_targets.txt` (39)
+
+Fast summarize from an existing CAPRI113 detail CSV:
+
+```bash
+SHIRALI_DIR="/path/to/AUC&ClassificanMetrics&SuccessRate/AUC&ClassificanMetrics&SuccessRate" \
+DETAIL_CSV=results/capri_eval_113_fnat03_best_epoch027_single.csv \
+bash scripts/run_capri_v2022_difficulty.sh summarize
+```
+
+Re-run TraDock only on those targets (Acceptable+ / classification):
+
+```bash
+CAPRI_DIR=/root/TraDock/data/database \
+CHECKPOINT=Trained_models/pretrain_with_sasa/TransformerDock_best.chk \
+SHIRALI_DIR=/path/to/AUC&ClassificanMetrics&SuccessRate/AUC&ClassificanMetrics&SuccessRate \
+bash scripts/run_capri_v2022_difficulty.sh eval
+```
+
+Notes:
+
+- Mapping is `T###-N` -> `S-T###.N`.
+- Shirali CSVs and TraDock `S-T*` packs may use different decoy pools for the same target name; report this caveat when comparing.
+- For a fully matched decoy comparison, TraDock must score the exact Shirali/scoreset models.
+
+## 10. Compare TraDock And BioScore
 
 After TraDock full 113 finishes, compare:
 

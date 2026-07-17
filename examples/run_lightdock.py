@@ -44,6 +44,13 @@ def run(cmd, cwd=None, timeout=3600):
     return r.stdout
 
 
+def _sim_timeout(explicit=None):
+    """LightDock simulation timeout in seconds (default 12h)."""
+    if explicit is not None:
+        return int(explicit)
+    return int(os.environ.get('LIGHTDOCK_TIMEOUT', '43200'))
+
+
 def split_complex(complex_pdb, rec_chains, lig_chains, rec_out, lig_out):
     """按链拆 native 复合物为 receptor.pdb / ligand.pdb。"""
     rec_set = set(rec_chains)
@@ -105,20 +112,17 @@ def _clean_pdb_for_lightdock(in_pdb, out_pdb):
 def process_one(args_tuple):
     (stem, rec_pdb, lig_pdb,
      rec_chains, lig_chains, out_root,
-     swarms, glowworms, steps) = args_tuple
+     swarms, glowworms, steps, sim_timeout) = args_tuple
 
     out_dir = os.path.join(out_root, stem)
     t0 = time.time()
 
-    # Resume：完整完成则跳过；半完成 / 残留则清掉重来
+    # Resume：已有足够 decoy 则跳过（允许先前 40×200=8000 的结果在改成 20×50 后仍复用）
     if os.path.isdir(out_dir):
         has_native = os.path.exists(os.path.join(out_dir, 'native.pdb'))
-        swarm_dirs = glob.glob(os.path.join(out_dir, 'swarm_*'))
         existing = glob.glob(os.path.join(out_dir, 'swarm_*', 'lightdock_*.pdb'))
-        # 完整完成的条件：native.pdb 存在 + swarm 数等于配置 + decoy 数 ≥ 90% 预期
         expected_min = int(swarms * glowworms * 0.9)
-        if (has_native and len(swarm_dirs) == swarms
-                and len(existing) >= expected_min):
+        if has_native and len(existing) >= expected_min:
             return stem, True, f'cached {len(existing)} decoys', 0.0
         # 半完成或残留：lightdock3_setup.py 不允许 swarm_X 已存在，必须清掉
         shutil.rmtree(out_dir, ignore_errors=True)
@@ -155,7 +159,7 @@ def process_one(args_tuple):
 
         # 4. simulation
         run(['lightdock3.py', 'setup.json', str(steps), '-c', '1'],
-            cwd=out_dir, timeout=7200)
+            cwd=out_dir, timeout=sim_timeout)
 
         # 5. generate conformations（每个 swarm 各自生成 PDB）
         # LightDock 0.9.4: lgd_generate_conformations.py 输入是原始 PDB 名
@@ -276,28 +280,40 @@ def main():
                    help='输入目录（含 *_receptor.pdb / *_ligand.pdb 或 *.pdb + *.chains）')
     p.add_argument('--out_root', required=True,
                    help='LightDock 输出根目录')
-    p.add_argument('--swarms', type=int, default=40,
-                   help='swarm 数（覆盖整个表面，默认 40）')
-    p.add_argument('--glowworms', type=int, default=200,
-                   help='每个 swarm 的 glowworm 数（构象数）')
+    p.add_argument('--swarms', type=int, default=20,
+                   help='swarm 数（覆盖整个表面，默认 20；与 glowworms 乘积≈1000）')
+    p.add_argument('--glowworms', type=int, default=50,
+                   help='每个 swarm 的 glowworm 数（构象数，默认 50）')
     p.add_argument('--steps', type=int, default=100,
                    help='GSO 优化步数')
     p.add_argument('--workers', type=int, default=4,
                    help='并行 target 数（每个 LightDock 自身单线程）')
     p.add_argument('--limit', type=int, default=None,
                    help='只处理前 N 个 target（调试用）')
+    p.add_argument('--targets', type=str, default=None,
+                   help='只跑这些 target，逗号分隔，如 1AKJ,1ATN')
+    p.add_argument('--timeout', type=int, default=None,
+                   help='单靶 lightdock3 超时秒数；默认读 LIGHTDOCK_TIMEOUT 或 43200')
     args = p.parse_args()
 
     os.makedirs(args.out_root, exist_ok=True)
     targets = collect_targets(args.pdb_dir)
+    if args.targets:
+        wanted = {t.strip() for t in args.targets.split(',') if t.strip()}
+        targets = [t for t in targets if t[0] in wanted]
+        missing = sorted(wanted - {t[0] for t in targets})
+        if missing:
+            print(f'[warn] 输入目录找不到: {", ".join(missing)}')
     if args.limit:
         targets = targets[:args.limit]
+    sim_timeout = _sim_timeout(args.timeout)
     print(f'目标数: {len(targets)}')
     print(f'每 target 预期 decoy 数 ≈ {args.swarms * args.glowworms}')
+    print(f'lightdock3 timeout: {sim_timeout}s ({sim_timeout/3600:.1f}h)')
     print('---')
 
     jobs = [(stem, rec, lig, rc, lc, args.out_root,
-             args.swarms, args.glowworms, args.steps)
+             args.swarms, args.glowworms, args.steps, sim_timeout)
             for (stem, rec, lig, rc, lc) in targets]
 
     n_ok = n_fail = 0

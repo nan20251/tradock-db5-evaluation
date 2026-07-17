@@ -705,9 +705,27 @@ def main():
                    help='读取已有 summary CSV，跳过已记录完成/失败的 target，并追加写入')
     p.add_argument('--ramdisk',     type=str, default='/dev/shm',
                    help='临时文件目录，建议 /dev/shm（ramdisk）')
+    p.add_argument('--targets_file', type=str, default=None,
+                   help='只评估文件中列出的 target（每行一个，如 S-T047.1）')
     args = p.parse_args()
 
     pdb_files = sorted(glob.glob(os.path.join(args.data_dir, 'S-T*.pdb')))
+    if args.targets_file:
+        with open(args.targets_file, 'r', encoding='utf-8') as f:
+            wanted = {
+                line.strip() for line in f
+                if line.strip() and not line.strip().startswith('#')
+            }
+        before = len(pdb_files)
+        pdb_files = [
+            p for p in pdb_files
+            if os.path.splitext(os.path.basename(p))[0] in wanted
+        ]
+        print(f"targets_file={args.targets_file}: {before} -> {len(pdb_files)} targets")
+        missing = sorted(wanted - {os.path.splitext(os.path.basename(p))[0] for p in pdb_files})
+        if missing:
+            print(f"  missing in data_dir ({len(missing)}): {', '.join(missing[:12])}"
+                  + (' ...' if len(missing) > 12 else ''))
     print(f"共 {len(pdb_files)} 个 target\n")
 
     # 临时目录优先用 /dev/shm
