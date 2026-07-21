@@ -27,6 +27,7 @@ To rerank ALL decoys on disk for a method:
 import argparse
 import csv
 import json
+import multiprocessing as mp
 import os
 import shutil
 import sys
@@ -302,13 +303,20 @@ class SurfaceCache:
             return
 
         workers = min(self.n_workers, len(jobs))
-        with ProcessPoolExecutor(max_workers=workers) as pool:
+        # Use spawn: forking after CUDA init deadlocks / stalls ProcessPool workers.
+        ctx = mp.get_context('spawn')
+        done = 0
+        print(f'  surface prefetch: {len(jobs)} pdbs, workers={workers}', flush=True)
+        with ProcessPoolExecutor(max_workers=workers, mp_context=ctx) as pool:
             futures = [pool.submit(_surface_worker, job) for job in jobs]
             for fut in as_completed(futures):
                 pdb_path, out_ply, ok = fut.result()
                 if not ok:
                     raise RuntimeError(f'surface generation failed: {pdb_path}')
                 self.cache[pdb_path] = Path(out_ply)
+                done += 1
+                if done == 1 or done % 50 == 0 or done == len(jobs):
+                    print(f'  surface prefetch: {done}/{len(jobs)}', flush=True)
 
 
 @torch.no_grad()
@@ -757,11 +765,13 @@ def main():
         summary_writer = csv.DictWriter(summary_f, fieldnames=SUMMARY_FIELDS, extrasaction='ignore')
         detail_writer.writeheader()
         summary_writer.writeheader()
+        detail_f.flush()
+        summary_f.flush()
 
         try:
             for i, target in enumerate(targets, 1):
                 pdbid = target['pdb']
-                print(f'[{i}/{len(targets)}] {pdbid}')
+                print(f'[{i}/{len(targets)}] {pdbid}', flush=True)
                 try:
                     detail_rows, summary = evaluate_target(
                         args, paper_eval, model, dist_threshold, in_channels, device,
