@@ -21,7 +21,8 @@ METHODS="${METHODS:-hdock alphafold lightdock}"
 MIN_TARGETS="${MIN_TARGETS:-218}"
 
 HDOCK_DATASET="${HDOCK_DATASET:-DB5-u}"
-HDOCK_NMAX="${HDOCK_NMAX:-100}"
+# Set HDOCK_NMAX=all to skip Top-N and TraDock-rerank every hdock_* already on disk.
+HDOCK_NMAX="${HDOCK_NMAX:-all}"
 HDOCK_WORK_ROOT="${HDOCK_WORK_ROOT:-$RUN_ROOT/hdock/work}"
 HDOCK_OUT_ROOT="${HDOCK_OUT_ROOT:-$RESULTS_ROOT/$HDOCK_DATASET}"
 HDOCK_BIN="${HDOCK_BIN:-hdock}"
@@ -40,7 +41,8 @@ AF_NUM_RECYCLE="${AF_NUM_RECYCLE:-3}"
 RUN_COLABFOLD="${RUN_COLABFOLD:-0}"
 
 LIGHTDOCK_DATASET="${LIGHTDOCK_DATASET:-DB5-u}"
-LIGHTDOCK_NMAX="${LIGHTDOCK_NMAX:-100}"
+# Set LIGHTDOCK_NMAX=all to export/rerank every LightDock decoy on disk.
+LIGHTDOCK_NMAX="${LIGHTDOCK_NMAX:-all}"
 LIGHTDOCK_INPUT_DIR="${LIGHTDOCK_INPUT_DIR:-$RUN_ROOT/lightdock_inputs/$LIGHTDOCK_DATASET}"
 LIGHTDOCK_OUTPUT_ROOT="${LIGHTDOCK_OUTPUT_ROOT:-$RUN_ROOT/lightdock_outputs/$LIGHTDOCK_DATASET}"
 LIGHTDOCK_SWARMS="${LIGHTDOCK_SWARMS:-20}"
@@ -52,6 +54,12 @@ RUN_LIGHTDOCK="${RUN_LIGHTDOCK:-1}"
 
 cd "$PROJECT_ROOT"
 mkdir -p "$RESULTS_ROOT" "$PAPER_EVAL_ROOT/dataset" "$PAPER_EVAL_ROOT/results" "$OUT_DIR"
+
+is_all_nmax() {
+    local n
+    n="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+    [ "$n" = "all" ] || [ "$n" = "0" ]
+}
 
 pose_models() {
     local prefix="$1"
@@ -101,14 +109,19 @@ eval_with_tradock() {
     local detail_out="$3"
     local min_targets="$4"
     local eval_limit="${5:-}"
+    local pose_prefix="${6:-}"
     local eval_args=()
     if [ -n "$eval_limit" ]; then
         eval_args+=(--limit "$eval_limit")
     fi
+    if [ -n "$pose_prefix" ]; then
+        eval_args+=(--all_decoys --pose_prefix "$pose_prefix")
+    else
+        eval_args+=(--pose_models "$pose_model_csv")
+    fi
     python -u examples/eval_db5_paper_tradock.py \
         --paper_root "$PAPER_EVAL_ROOT" \
         --dataset "$dataset" \
-        --pose_models "$pose_model_csv" \
         --checkpoint "$CHECKPOINT" \
         --out "$detail_out" \
         --score_type "${SCORE_TYPE:-mdn}" \
@@ -155,33 +168,43 @@ if [ ! -f "$CHECKPOINT" ]; then
 fi
 
 if has_method hdock; then
-    echo "=== HDOCKlite ${HDOCK_DATASET} Top${HDOCK_NMAX} ==="
-    setup_eval_root "$HDOCK_DATASET"
-    mkdir -p "$HDOCK_OUT_ROOT" "$HDOCK_WORK_ROOT"
-    HDOCK_ARGS=()
-    if [ -n "${HDOCK_TARGETS:-}" ]; then
-        HDOCK_ARGS+=(--targets "$HDOCK_TARGETS")
-    fi
-    if [ -n "${HDOCK_LIMIT:-}" ]; then
-        HDOCK_ARGS+=(--limit "$HDOCK_LIMIT")
-    fi
-    if [ -n "${HDOCK_OVERWRITE:-}" ]; then
-        HDOCK_ARGS+=(--overwrite)
-    fi
-    python -u examples/generate_db5_hdocklite_candidates.py \
-        --paper_root "$PPC_ROOT" \
-        --dataset "$HDOCK_DATASET" \
-        --out_root "$HDOCK_OUT_ROOT" \
-        --work_root "$HDOCK_WORK_ROOT" \
-        --hdock_bin "$HDOCK_BIN" \
-        --createpl_bin "$CREATEPL_BIN" \
-        --nmax "$HDOCK_NMAX" \
-        "${HDOCK_ARGS[@]}"
+    if is_all_nmax "$HDOCK_NMAX"; then
+        echo "=== HDOCKlite ${HDOCK_DATASET} ALL decoys (skip generate; discover hdock_*) ==="
+        setup_eval_root "$HDOCK_DATASET"
+        HDOCK_DETAIL="${OUT_DIR}/tradock_${HDOCK_DATASET}_hdock_all.csv"
+        eval_with_tradock "$HDOCK_DATASET" "" "$HDOCK_DETAIL" "$MIN_TARGETS" \
+            "${HDOCK_EVAL_LIMIT:-${HDOCK_LIMIT:-}}" hdock
+        summarize_detail "$HDOCK_DETAIL" hdock "hdock_${HDOCK_DATASET}_all_compare"
+    else
+        echo "=== HDOCKlite ${HDOCK_DATASET} Top${HDOCK_NMAX} ==="
+        setup_eval_root "$HDOCK_DATASET"
+        mkdir -p "$HDOCK_OUT_ROOT" "$HDOCK_WORK_ROOT"
+        HDOCK_ARGS=()
+        if [ -n "${HDOCK_TARGETS:-}" ]; then
+            HDOCK_ARGS+=(--targets "$HDOCK_TARGETS")
+        fi
+        if [ -n "${HDOCK_LIMIT:-}" ]; then
+            HDOCK_ARGS+=(--limit "$HDOCK_LIMIT")
+        fi
+        if [ -n "${HDOCK_OVERWRITE:-}" ]; then
+            HDOCK_ARGS+=(--overwrite)
+        fi
+        python -u examples/generate_db5_hdocklite_candidates.py \
+            --paper_root "$PPC_ROOT" \
+            --dataset "$HDOCK_DATASET" \
+            --out_root "$HDOCK_OUT_ROOT" \
+            --work_root "$HDOCK_WORK_ROOT" \
+            --hdock_bin "$HDOCK_BIN" \
+            --createpl_bin "$CREATEPL_BIN" \
+            --nmax "$HDOCK_NMAX" \
+            "${HDOCK_ARGS[@]}"
 
-    HDOCK_POSES="$(pose_models hdock "$HDOCK_NMAX")"
-    HDOCK_DETAIL="${OUT_DIR}/tradock_${HDOCK_DATASET}_hdock_top${HDOCK_NMAX}.csv"
-    eval_with_tradock "$HDOCK_DATASET" "$HDOCK_POSES" "$HDOCK_DETAIL" "$MIN_TARGETS" "${HDOCK_EVAL_LIMIT:-${HDOCK_LIMIT:-}}"
-    summarize_detail "$HDOCK_DETAIL" hdock "hdock_${HDOCK_DATASET}_top${HDOCK_NMAX}_compare"
+        HDOCK_POSES="$(pose_models hdock "$HDOCK_NMAX")"
+        HDOCK_DETAIL="${OUT_DIR}/tradock_${HDOCK_DATASET}_hdock_top${HDOCK_NMAX}.csv"
+        eval_with_tradock "$HDOCK_DATASET" "$HDOCK_POSES" "$HDOCK_DETAIL" "$MIN_TARGETS" \
+            "${HDOCK_EVAL_LIMIT:-${HDOCK_LIMIT:-}}"
+        summarize_detail "$HDOCK_DETAIL" hdock "hdock_${HDOCK_DATASET}_top${HDOCK_NMAX}_compare"
+    fi
 fi
 
 if has_method alphafold; then
@@ -275,7 +298,11 @@ if has_method alphafold; then
 fi
 
 if has_method lightdock; then
-    echo "=== LightDock ${LIGHTDOCK_DATASET} Top${LIGHTDOCK_NMAX} ==="
+    if is_all_nmax "$LIGHTDOCK_NMAX"; then
+        echo "=== LightDock ${LIGHTDOCK_DATASET} ALL decoys ==="
+    else
+        echo "=== LightDock ${LIGHTDOCK_DATASET} Top${LIGHTDOCK_NMAX} ==="
+    fi
     setup_eval_root "$LIGHTDOCK_DATASET"
     if [ "$RUN_LIGHTDOCK" = "1" ]; then
         if ! require_cmds lightdock3_setup.py lightdock3.py lgd_generate_conformations.py; then
@@ -330,19 +357,35 @@ if has_method lightdock; then
     if [ -n "${LIGHTDOCK_LIMIT:-}" ]; then
         LIGHTDOCK_EXPORT_ARGS+=(--limit "$LIGHTDOCK_LIMIT")
     fi
-    python examples/export_lightdock_to_paper_candidates.py \
-        --ld_root "$LIGHTDOCK_OUTPUT_ROOT" \
-        --out_root "$RESULTS_ROOT/$LIGHTDOCK_DATASET" \
-        --dataset "$LIGHTDOCK_DATASET" \
-        --prefix lightdock \
-        --nmax "$LIGHTDOCK_NMAX" \
-        "${LIGHTDOCK_EXPORT_ARGS[@]}"
-
-    LIGHTDOCK_POSES="$(pose_models lightdock "$LIGHTDOCK_NMAX")"
-    LIGHTDOCK_DETAIL="${OUT_DIR}/tradock_${LIGHTDOCK_DATASET}_lightdock_top${LIGHTDOCK_NMAX}.csv"
-    eval_with_tradock "$LIGHTDOCK_DATASET" "$LIGHTDOCK_POSES" "$LIGHTDOCK_DETAIL" "$MIN_TARGETS" "${LIGHTDOCK_EVAL_LIMIT:-${LIGHTDOCK_LIMIT:-}}"
-    summarize_detail "$LIGHTDOCK_DETAIL" lightdock "lightdock_${LIGHTDOCK_DATASET}_top${LIGHTDOCK_NMAX}_compare"
+    if is_all_nmax "$LIGHTDOCK_NMAX"; then
+        # nmax=0 => export every scored decoy (see export_lightdock_to_paper_candidates.py)
+        LIGHTDOCK_EXPORT_NMAX=0
+        python examples/export_lightdock_to_paper_candidates.py \
+            --ld_root "$LIGHTDOCK_OUTPUT_ROOT" \
+            --out_root "$RESULTS_ROOT/$LIGHTDOCK_DATASET" \
+            --dataset "$LIGHTDOCK_DATASET" \
+            --prefix lightdock \
+            --nmax "$LIGHTDOCK_EXPORT_NMAX" \
+            "${LIGHTDOCK_EXPORT_ARGS[@]}"
+        LIGHTDOCK_DETAIL="${OUT_DIR}/tradock_${LIGHTDOCK_DATASET}_lightdock_all.csv"
+        eval_with_tradock "$LIGHTDOCK_DATASET" "" "$LIGHTDOCK_DETAIL" "$MIN_TARGETS" \
+            "${LIGHTDOCK_EVAL_LIMIT:-${LIGHTDOCK_LIMIT:-}}" lightdock
+        summarize_detail "$LIGHTDOCK_DETAIL" lightdock "lightdock_${LIGHTDOCK_DATASET}_all_compare"
+    else
+        python examples/export_lightdock_to_paper_candidates.py \
+            --ld_root "$LIGHTDOCK_OUTPUT_ROOT" \
+            --out_root "$RESULTS_ROOT/$LIGHTDOCK_DATASET" \
+            --dataset "$LIGHTDOCK_DATASET" \
+            --prefix lightdock \
+            --nmax "$LIGHTDOCK_NMAX" \
+            "${LIGHTDOCK_EXPORT_ARGS[@]}"
+        LIGHTDOCK_POSES="$(pose_models lightdock "$LIGHTDOCK_NMAX")"
+        LIGHTDOCK_DETAIL="${OUT_DIR}/tradock_${LIGHTDOCK_DATASET}_lightdock_top${LIGHTDOCK_NMAX}.csv"
+        eval_with_tradock "$LIGHTDOCK_DATASET" "$LIGHTDOCK_POSES" "$LIGHTDOCK_DETAIL" "$MIN_TARGETS" \
+            "${LIGHTDOCK_EVAL_LIMIT:-${LIGHTDOCK_LIMIT:-}}"
+        summarize_detail "$LIGHTDOCK_DETAIL" lightdock "lightdock_${LIGHTDOCK_DATASET}_top${LIGHTDOCK_NMAX}_compare"
+    fi
 fi
 
 echo "=== Done ==="
-ls -1 "$OUT_DIR"/*top*.csv "$OUT_DIR"/*compare*.csv 2>/dev/null || true
+ls -1 "$OUT_DIR"/*top*.csv "$OUT_DIR"/*all*.csv "$OUT_DIR"/*compare*.csv 2>/dev/null || true

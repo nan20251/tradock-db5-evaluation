@@ -514,13 +514,16 @@ def score_one(model, dist_threshold, device, rec_ply, lig_ply,
     rec_data, lig_data = prepare_complex(rec_ply, lig_ply, in_channels=in_channels)
     rec_data = rec_data.to(device)
     lig_data = lig_data.to(device)
-    pi, sigma, mu, dist, _, pred_energy = model(rec_data, lig_data)
+    amp_on = str(device).startswith('cuda')
+    with torch.cuda.amp.autocast(enabled=amp_on):
+        pi, sigma, mu, dist, _, pred_energy = model(rec_data, lig_data)
+    pi, sigma, mu, dist = pi.float(), sigma.float(), mu.float(), dist.float()
     d = dist.squeeze(1)
     n_interface_pairs = int((d < dist_threshold).sum().item())
     n_close_pairs = int((d < close_threshold).sum().item())
     n_clash_pairs = int((d < clash_threshold).sum().item())
     mdn_score = ppi_score(pi, sigma, mu, dist, dist_threshold)
-    energy_score = float(pred_energy.item())
+    energy_score = float(pred_energy.float().item())
     score_reason = 'ok' if n_interface_pairs > 0 else 'no_interface_pairs'
     contact_bonus = float(np.log1p(n_interface_pairs))
     close_contact_bonus = float(np.log1p(n_close_pairs))

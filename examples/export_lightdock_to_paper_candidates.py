@@ -229,6 +229,8 @@ def rank_lig_path(out_root, prefix, rank, pdbid):
 
 
 def outputs_complete(out_root, prefix, pdbid, nmax):
+    if nmax <= 0:
+        return False
     return all(
         rank_lig_path(out_root, prefix, rank, pdbid).exists()
         for rank in range(1, nmax + 1)
@@ -241,7 +243,7 @@ def lightdock_decoys_by_file_order(target_dir, nmax):
         key=numeric_key,
     )
     paths = [Path(path) for path in paths]
-    return paths[:nmax] if nmax else paths
+    return paths if nmax <= 0 else paths[:nmax]
 
 
 def process_target(args, target_dir):
@@ -266,15 +268,16 @@ def process_target(args, target_dir):
         target_dir, args.score_field,
         allow_file_order_fallback=args.allow_file_order_fallback,
     )
-    if len(records) < args.nmax:
+    export_n = len(records) if args.nmax <= 0 else args.nmax
+    if len(records) < export_n:
         raise RuntimeError(
-            f'only {len(records)} scored LightDock decoys, expected {args.nmax}; '
+            f'only {len(records)} scored LightDock decoys, expected {export_n}; '
             'check swarm_*/gso_*.out or pass --allow_file_order_fallback'
         )
 
     n_exported = 0
     selected_rows = []
-    for rank, record in enumerate(records[:args.nmax], 1):
+    for rank, record in enumerate(records[:export_n], 1):
         decoy = record['pdb']
         pose_model = f'{args.prefix}_{rank}'
         rank_dir = out_root / pose_model / pdbid
@@ -310,7 +313,7 @@ def process_target(args, target_dir):
         'target': pdbid,
         'status': 'done',
         'message': '',
-        'n_requested': args.nmax,
+        'n_requested': args.nmax if args.nmax > 0 else export_n,
         'n_exported': n_exported,
         'ranking': args.score_field,
         'ld_target_dir': str(target_dir),
@@ -335,7 +338,8 @@ def main():
     parser.add_argument('--out_root', required=True)
     parser.add_argument('--dataset', default='DB5-u')
     parser.add_argument('--prefix', default='lightdock')
-    parser.add_argument('--nmax', type=int, default=100)
+    parser.add_argument('--nmax', type=int, default=100,
+                        help='Max decoys to export (0 = all scored decoys)')
     parser.add_argument('--score_field', default='scoring',
                         choices=['scoring', 'luciferin'],
                         help='LightDock field used for Original rank')
