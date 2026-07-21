@@ -326,8 +326,19 @@ def score_pair(model, dist_threshold, device, rec_ply, lig_ply,
     rec_data = rec_data.to(device)
     lig_data = lig_data.to(device)
     amp_on = bool(use_amp) and str(device).startswith('cuda')
-    with torch.cuda.amp.autocast(enabled=amp_on):
-        pi, sigma, mu, dist, _, pred_energy = model(rec_data, lig_data)
+
+    def _forward(enabled_amp):
+        with torch.cuda.amp.autocast(enabled=enabled_amp):
+            return model(rec_data, lig_data)
+
+    try:
+        pi, sigma, mu, dist, _, pred_energy = _forward(amp_on)
+    except RuntimeError as exc:
+        # Large coordinates / activations can overflow FP16 autocast.
+        if amp_on and 'Half' in str(exc):
+            pi, sigma, mu, dist, _, pred_energy = _forward(False)
+        else:
+            raise
     # Keep scoring math in FP32 for stability.
     mdn_score = ppi_score(pi.float(), sigma.float(), mu.float(), dist.float(), dist_threshold)
     energy_score = float(pred_energy.float().item())
