@@ -63,6 +63,24 @@ Run DB5 paper-style evaluation:
 bash scripts/run_step8_eval_db5_paper.sh
 ```
 
+Evaluate TraDock on Shirali BM5_15 (DeepRank-GNN hold-out, ~7500 HADDOCK decoys):
+
+```bash
+# after unzip BM5_15complexes.zip and placing BM5_scores&labels.csv
+CHECKPOINT=Trained_models/pretrain_with_sasa/TransformerDock_best.chk \
+BM5_15_DIR=~/tradock_data/BM5_15complexes \
+LABELS_CSV=~/tradock_data/BM5_scores\&labels.csv \
+bash scripts/run_bm5_15_tradock_eval.sh
+```
+
+Smoke test (1 target, 20 decoys):
+
+```bash
+LIMIT_TARGETS=1 LIMIT_PER_TARGET=20 \
+CHECKPOINT=... BM5_15_DIR=... LABELS_CSV=... \
+bash scripts/run_bm5_15_tradock_eval.sh
+```
+
 Restore the portable DB5 three-method evaluation on a new server:
 
 ```bash
