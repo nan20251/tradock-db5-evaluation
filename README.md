@@ -81,6 +81,34 @@ CHECKPOINT=... BM5_15_DIR=... LABELS_CSV=... \
 bash scripts/run_bm5_15_tradock_eval.sh
 ```
 
+Crop surface PLY files to interface nodes (within 10 Å of the partner chain):
+
+```bash
+# from one decoy complex PDB
+python scripts/crop_interface_ply.py \
+  --decoy-pdb /path/to/decoy.pdb --rec-chain A --lig-chain B \
+  --out-dir /path/to/cropped --threshold 10
+
+# from existing full surfaces
+python scripts/crop_interface_ply.py \
+  --rec-ply rec_full.ply --lig-ply lig_full.ply \
+  --rec-partner-pdb lig.pdb --lig-partner-pdb rec.pdb \
+  --out-dir /path/to/cropped
+```
+
+Output files: `iface_receptor_iface.ply` and `iface_ligand_iface.ply`.
+The script prints how many nodes/faces were kept.
+
+Pilot: first 10 DB5-u targets, HDock Top-500, score after interface crop:
+
+```bash
+cd ~/tradock-db5-evaluation
+GPU=0 LIMIT=10 MAX_POSES=500 bash scripts/run_hdock_crop_pilot.sh
+```
+
+Then compare `T@1/T@10/T@100` to the same first 10 targets in the full-surface
+`tradock_DB5-u_hdock_all500.*.summary.csv` run.
+
 Restore the portable DB5 three-method evaluation on a new server:
 
 ```bash

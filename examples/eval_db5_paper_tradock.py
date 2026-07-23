@@ -51,6 +51,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from examples.surface_gen import pdb_to_surface_ply
 from transformerdock.models import DeepDock_PPI, ppi_score
+from transformerdock.prepare_target.cropInterface import crop_ply_file
 from transformerdock.utils.data import prepare_complex
 
 
@@ -225,7 +226,8 @@ def discover_pose_models(paper_root, dataset, prefix):
     return names
 
 
-def collect_candidates(paper_root, dataset, pdbid, pose_models, default_pred_rec):
+def collect_candidates(paper_root, dataset, pdbid, pose_models, default_pred_rec,
+                       max_poses=None):
     out = []
     for i, pose_model in enumerate(pose_models, 1):
         target_dir = paper_root / 'results' / dataset / pose_model / pdbid
@@ -245,6 +247,8 @@ def collect_candidates(paper_root, dataset, pdbid, pose_models, default_pred_rec
         out.append(Candidate(pose_model, rank, rec_path, lig_path))
     # Keep original docking rank order for Paper@K.
     out.sort(key=lambda c: c.input_rank)
+    if max_poses is not None and int(max_poses) > 0:
+        out = out[:int(max_poses)]
     return out
 
 
@@ -398,7 +402,8 @@ DETAIL_FIELDS = [
     'dataset', 'condition', 'target_index', 'target_total', 'target',
     'pose_model', 'input_rank', 'tradock_rank',
     'score', 'dockq', 'irmsd', 'crmsd', 'intersection',
-    'classification', 'success', 'status', 'message',
+    'classification', 'success', 'iface_rec_nodes', 'iface_lig_nodes',
+    'status', 'message',
     'pred_rec', 'pred_lig',
 ]
 
@@ -534,7 +539,8 @@ def evaluate_target(args, paper_eval, model, dist_threshold, in_channels, device
         dataset_dir, args.dataset, pdbid
     )
     candidates = collect_candidates(
-        Path(args.paper_root), args.dataset, pdbid, pose_models, default_pred_rec
+        Path(args.paper_root), args.dataset, pdbid, pose_models, default_pred_rec,
+        max_poses=getattr(args, 'max_poses', None),
     )
     if not candidates:
         return [], {
@@ -586,6 +592,19 @@ def evaluate_target(args, paper_eval, model, dist_threshold, in_channels, device
         try:
             rec_ply = cache.get(cand.rec_path)
             lig_ply = cache.get(cand.lig_path)
+            if getattr(args, 'crop_interface', False):
+                thr = float(getattr(args, 'crop_threshold', 10.0))
+                rec_crop = Path(tmpdir) / f'{pdbid}_{cand.pose_model}_rec_iface.ply'
+                lig_crop = Path(tmpdir) / f'{pdbid}_{cand.pose_model}_lig_iface.ply'
+                rec_stats = crop_ply_file(
+                    str(rec_ply), str(rec_crop), str(cand.lig_path), threshold=thr,
+                )
+                lig_stats = crop_ply_file(
+                    str(lig_ply), str(lig_crop), str(cand.rec_path), threshold=thr,
+                )
+                row['iface_rec_nodes'] = rec_stats['vertices_after']
+                row['iface_lig_nodes'] = lig_stats['vertices_after']
+                rec_ply, lig_ply = rec_crop, lig_crop
             row['score'] = score_pair(
                 model, dist_threshold, device, rec_ply, lig_ply,
                 score_type=args.score_type, fusion_alpha=args.fusion_alpha,
@@ -694,6 +713,12 @@ def main():
                         help='Fail unless full dataset has at least this many targets; ignored with --limit/--start_index/--end_index/--shard')
     parser.add_argument('--limit', type=int, default=None,
                         help='Debug only: evaluate first N targets')
+    parser.add_argument('--max_poses', type=int, default=None,
+                        help='Keep only the first N poses by docking rank (after discovery)')
+    parser.add_argument('--crop_interface', action='store_true',
+                        help='Crop each surface to nodes within --crop_threshold of the partner')
+    parser.add_argument('--crop_threshold', type=float, default=10.0,
+                        help='Interface crop distance cutoff in Angstrom (default: 10)')
     parser.add_argument('--start_index', type=int, default=0,
                         help='0-based inclusive start index into the target list')
     parser.add_argument('--end_index', type=int, default=None,
@@ -765,6 +790,10 @@ def main():
         print(f'pose_models: {pose_models}')
     if args.shard:
         print(f'shard: {args.shard}')
+    if args.max_poses:
+        print(f'max_poses: {args.max_poses}')
+    if args.crop_interface:
+        print(f'crop_interface: on  threshold={args.crop_threshold} A')
     model, dist_threshold, in_channels = load_model(args.checkpoint, device)
 
     os.makedirs(os.path.dirname(args.out) or '.', exist_ok=True)
