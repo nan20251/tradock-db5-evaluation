@@ -61,7 +61,12 @@ if [ ! -d "$RESULTS_ROOT/$DATASET" ]; then
 fi
 
 setup_eval_root "$DATASET"
-PAPER_ROOT="${PAPER_ROOT:-$PAPER_EVAL_ROOT}"
+# Eval must use PPCBench_eval (symlinks to dataset + HDock results), not raw PPCBench.
+PAPER_ROOT="$PAPER_EVAL_ROOT"
+if [ ! -d "$PAPER_ROOT/results/$DATASET" ]; then
+  echo "[error] missing eval results link: $PAPER_ROOT/results/$DATASET"
+  exit 1
+fi
 
 mkdir -p "$(dirname "$OUT")"
 LOG_DIR="$(dirname "$OUT")/logs"
