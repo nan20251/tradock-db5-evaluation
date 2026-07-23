@@ -4,11 +4,8 @@
 # Example (AIDD):
 #   conda activate tradock
 #   cd ~/tradock-db5-evaluation
-#   git pull   # if you pushed the crop changes
-#   GPU=0 LIMIT=10 MAX_POSES=500 \
-#     bash scripts/run_hdock_crop_pilot.sh
-#
-# Compares later against existing full-surface shard summaries for the same targets.
+#   git pull
+#   GPU=0 LIMIT=10 MAX_POSES=500 bash scripts/run_hdock_crop_pilot.sh
 
 set -euo pipefail
 
@@ -18,10 +15,7 @@ cd "$PROJECT_ROOT"
 
 # shellcheck source=/dev/null
 source "$PROJECT_ROOT/scripts/tradock_path_lib.sh"
-if [ -f "$PROJECT_ROOT/environment.local" ]; then
-  # shellcheck source=/dev/null
-  source "$PROJECT_ROOT/environment.local"
-fi
+tradock_source_env_files "$PROJECT_ROOT"
 
 GPU="${GPU:-0}"
 LIMIT="${LIMIT:-10}"
@@ -30,9 +24,44 @@ CROP_THRESHOLD="${CROP_THRESHOLD:-10}"
 N_WORKERS="${N_WORKERS:-8}"
 DATASET="${DATASET:-DB5-u}"
 POSE_PREFIX="${POSE_PREFIX:-hdock}"
-PAPER_ROOT="${PAPER_ROOT:-$(tradock_default_ppc_root)}"
+
+PPC_ROOT="${PPC_ROOT:-$(tradock_default_ppc_root)}"
+RUN_ROOT="${DB5_EVAL_RUN_ROOT:-$(tradock_data_root)/db5_three_method_eval}"
+RESULTS_ROOT="${DB5_EVAL_RESULTS_ROOT:-$RUN_ROOT/results}"
+PAPER_EVAL_ROOT="${DB5_EVAL_PAPER_ROOT:-$RUN_ROOT/PPCBench_eval}"
 CHECKPOINT="${CHECKPOINT:-$(tradock_default_checkpoint "$PROJECT_ROOT")}"
 OUT="${OUT:-$PROJECT_ROOT/results/tradock_${DATASET}_hdock_all${MAX_POSES}_crop${CROP_THRESHOLD}_n${LIMIT}.csv}"
+
+safe_link() {
+  local src="$1"
+  local dst="$2"
+  if [ -e "$dst" ] && [ ! -L "$dst" ]; then
+    echo "[error] refusing to replace non-symlink path: $dst"
+    exit 1
+  fi
+  ln -sfn "$src" "$dst"
+}
+
+setup_eval_root() {
+  local dataset="$1"
+  mkdir -p "$RESULTS_ROOT/$dataset" "$PAPER_EVAL_ROOT/dataset" "$PAPER_EVAL_ROOT/results"
+  safe_link "$PPC_ROOT/evaluate" "$PAPER_EVAL_ROOT/evaluate"
+  safe_link "$PPC_ROOT/dataset/$dataset" "$PAPER_EVAL_ROOT/dataset/$dataset"
+  safe_link "$RESULTS_ROOT/$dataset" "$PAPER_EVAL_ROOT/results/$dataset"
+}
+
+if [ ! -d "$PPC_ROOT/dataset/$DATASET" ] || [ ! -d "$PPC_ROOT/evaluate" ]; then
+  echo "[error] missing PPCBench dataset/evaluate under $PPC_ROOT"
+  exit 1
+fi
+if [ ! -d "$RESULTS_ROOT/$DATASET" ]; then
+  echo "[error] missing HDock results: $RESULTS_ROOT/$DATASET"
+  echo "Expected pose dirs like $RESULTS_ROOT/$DATASET/hdock_1/<PDB>/..."
+  exit 1
+fi
+
+setup_eval_root "$DATASET"
+PAPER_ROOT="${PAPER_ROOT:-$PAPER_EVAL_ROOT}"
 
 mkdir -p "$(dirname "$OUT")"
 LOG_DIR="$(dirname "$OUT")/logs"
@@ -41,6 +70,8 @@ LOG="$LOG_DIR/$(basename "${OUT%.csv}").log"
 
 echo "=== HDock crop pilot ==="
 echo "GPU=$GPU  limit=$LIMIT  max_poses=$MAX_POSES  crop=${CROP_THRESHOLD}A"
+echo "ppc_root=$PPC_ROOT"
+echo "results_root=$RESULTS_ROOT"
 echo "paper_root=$PAPER_ROOT"
 echo "checkpoint=$CHECKPOINT"
 echo "out=$OUT"
