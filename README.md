@@ -99,6 +99,21 @@ python scripts/crop_interface_ply.py \
 Output files: `iface_receptor_iface.ply` and `iface_ligand_iface.ply`.
 The script prints how many nodes/faces were kept.
 
+**Oracle site filter** (keep decoys that contact the native receptor interface):
+
+```bash
+# Reuse an existing TraDock detail CSV (no rescoring) — recommended
+python scripts/filter_decoys_by_site.py \
+  --detail-csv results/tradock_DB5-u_hdock_all500.shard0of2.csv \
+  --paper-root /path/to/PPCBench_eval \
+  --dataset DB5-u \
+  --targets 1ACB,1F34,1KAC,2I9B,3V6Z,4POU \
+  --site-frac-min 0.3 \
+  --out results/hdock_site_filter.csv
+
+# Prints T@K / P@K / O@K for all poses vs kept poses (site_frac >= 0.3)
+```
+
 Pilot: first 10 DB5-u targets, HDock Top-500, score after interface crop:
 
 ```bash
